@@ -246,7 +246,6 @@ procedure TTifmap.LoadFromStream(Stream: TStream);
 begin
   {this if want percent}
   DPEMain.ProgressBar.Visible := True;
-  DPEMain.ProgressBar.Max := 100;
   { }
   try
     FStream := TMemoryStream.Create;
@@ -265,7 +264,6 @@ begin
   end;
   {this if want percent}
   DPEMain.ProgressBar.Visible := False;
-  DPEMain.ProgressBar.Max := 10;
   { }
 end;
 

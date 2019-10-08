@@ -7,7 +7,7 @@ uses Windows, Classes, Graphics, Forms, Controls, Buttons,
 
 type
   TNewImgF = class(TForm)
-    okvir: TBevel;
+    Bevel: TBevel;
     xresed: TEdit;
     yresed: TEdit;
     sir: TLabel;
@@ -19,8 +19,14 @@ type
     precap: TLabel;
     xres: TUpDown;
     yres: TUpDown;
+    Itype: TComboBox;
+    ITypeCap: TLabel;
+    bcolorcap: TLabel;
+    bcolor: TComboBox;
+    mcap: TLabel;
+    mqcap: TLabel;
+    procedure MemREQ(Sender : TObject);
     procedure init(Sender: TObject);
-    procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure cbChange(Sender: TObject);
     procedure resedClick(Sender: TObject);
   private
@@ -31,25 +37,57 @@ type
 
 var
   NewImgF: TNewImgF;
+function ShowNEWDLG(var W,H,BitDepth,BackColor : word) :  integer;
+
 implementation
 uses dpemform;
 {$R *.DFM}
+
+function ShowNEWDLG(var W,H,BitDepth,BackColor : word) :  integer;
+begin
+  with TNEWIMGF.Create(Application) do
+  try
+    result := ShowModal;
+    if Result = mrOK then
+    begin
+         W := xres.Position;
+         H := yres.Position;
+         BitDepth := IType.ItemIndex;
+         BackColor := BColor.ItemIndex;
+         RegIniFile := TRegIniFile.Create(DPEIniName);
+         RegIniFile.WriteInteger('Image','X',xres.position);
+         RegIniFile.WriteInteger('Image','Y',yres.position);
+         RegIniFile.WriteInteger('Image','Depth',itype.ItemIndex);
+         RegIniFile.WriteInteger('Image','Background',bcolor.ItemIndex);
+         RegIniFile.Free;
+    end;
+  finally
+    Free;
+  end;
+end;
+procedure TNewImgF.MemREQ(Sender : TObject);
+var m : Real;
+begin
+  m := 0;
+  case itype.ItemIndex of
+   0: m := 0.125;
+   1: m := 0.5;
+   2,3: m := 1;
+   4: m := 3;
+  end;
+  mqcap.Caption := FormatFloat('0.0',(xres.Position * yres.Position *m)/1024) + ' KB';
+end;
 
 procedure TNewImgF.init(Sender: TObject);
 begin
 RegIniFile := TRegIniFile.Create(DPEIniName);
 xres.Position := RegIniFile.ReadInteger('Image','X', Screen.Width);
 yres.Position := RegIniFile.ReadInteger('Image','Y', Screen.Height);
+itype.ItemIndex := RegIniFile.ReadInteger('Image','Depth',4);
+bcolor.ItemIndex := RegIniFile.ReadInteger('Image','Background', 0);
 RegIniFile.Free;
 cb.ItemIndex := 9;
-end;
-
-procedure TNewImgF.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
-begin
-RegIniFile := TRegIniFile.Create(DPEIniName);
-RegIniFile.WriteInteger('Image','X',xres.position);
-RegIniFile.WriteInteger('Image','Y',yres.position);
-RegIniFile.Free;
+MemReq(Sender);
 end;
 
 procedure TNewImgF.cbChange(Sender: TObject);

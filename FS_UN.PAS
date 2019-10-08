@@ -14,6 +14,7 @@ type
     procedure FormKeyDown(Sender: TObject; var Key: Word;
       Shift: TShiftState);
     procedure FormKeyPress(Sender: TObject; var Key: Char);
+    procedure FormCreate(Sender: TObject);
   private
     { Private declarations }
   public
@@ -23,13 +24,27 @@ type
 var
   FullSCR: TFullSCR;
 
+procedure ShowFS;
+
 implementation
 
 {$R *.DFM}
 
+uses dpemform,photo;
+
+procedure ShowFS;
+begin
+  with TFullSCR.Create(Application) do
+  try
+    ShowModal;
+  finally
+    Free;
+  end;
+end;
+
 procedure TFullSCR.FullImgClick(Sender: TObject);
 begin
-Hide;
+ModalResult := mrOK;
 end;
 
 procedure TFullSCR.FormShow(Sender: TObject);
@@ -58,7 +73,14 @@ end;
 
 procedure TFullSCR.FormKeyPress(Sender: TObject; var Key: Char);
 begin
-Hide;
+ModalResult := mrOK;
+end;
+
+procedure TFullSCR.FormCreate(Sender: TObject);
+var tft : TFPhoto;
+begin
+tft := TFPhoto(DPEMain.ActiveMDIChild);
+FullImg.Picture.Bitmap.Assign(tft.Photo.Picture.Bitmap);
 end;
 
 end.

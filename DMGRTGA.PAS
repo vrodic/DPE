@@ -101,7 +101,7 @@ begin
   then begin
        dec(RleCnt);
        exit;
-  end {gepackter PixelBlock};
+  end;
   dec(BlkCnt);
   if (BlkCnt < 0)
   then begin
@@ -110,10 +110,10 @@ begin
        then begin
             RleCnt := smallint(ImageByte AND $7f);
             BlkCnt := 0;
-       end {neuer gepackter Block}
+       end
        else begin
             BlkCnt := smallint(ImageByte AND $7f);
-       end {neuer ungepackter Block};
+       end;
   end {if (BlkCnt < 0)};
   for i := 1 to PixelSize do ImagePixel[i] := GetStreamByte;
 end {procedure ReadRLEPixel};
@@ -161,7 +161,7 @@ var pDIBv: pointer;
     pTGAv: pointer;
     DIBoff: longint;
     y, cHei: integer;
-    Proz: longint;
+    Percent: longint;
 begin
   with DMGS
   do begin
@@ -170,7 +170,7 @@ begin
      then DIBoff := cBMI - cDIBline
      else DIBoff := cDIB + cBMI;
      cHei := pBMI^.bmiHeader.biHeight;
-     ProzFaktor := 100 / cHei;
+     PercentFactor := 100 / cHei;
      for y := 1 to cHei
      do begin
         pTGAv := pWrite + wOffset;
@@ -180,8 +180,8 @@ begin
         Move(pTGAv^, pDIBv^, wLineLength);
         if (MulTa <> nil)
         then begin
-             Proz   := round(y * ProzFaktor);
-             bAbort := TMultiTasking(MulTa)(DMG_Repack, Proz);
+             Percent:= round(y * PercentFactor);
+             bAbort := TMultiTasking(MulTa)(Percent);
              if bAbort then exit;
         end;
      end;
@@ -197,11 +197,6 @@ var cWid, cHei: word;
     Coding: boolean;
 begin
   Result := false;
-  if not(GetPictureStream)
-  then begin
-       ExitConvProc(mg_LastError);
-       exit;
-  end {Error while reading image};
   if not(GetHeader(@TGAHeader))
   then begin
        ExitConvProc(mg_LastError);

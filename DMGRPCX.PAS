@@ -136,14 +136,14 @@ procedure Repack1or8;
 var pDIBv, pPCXv: pointer;
     DIBoff: longint;
     y, cHei: integer;
-    Proz: longint;
+    Percent: longint;
 begin
   with DMGS
   do begin
-     wOffset := 0;                              
+     wOffset := 0;
      DIBoff := cDIB + cBMI;
      cHei   := pBMI^.bmiHeader.biHeight;
-     ProzFaktor := 100 / cHei;
+     PercentFactor := 100 / cHei;
      for y := 1 to cHei
      do begin
         pPCXv := pWrite + wOffset;
@@ -153,8 +153,8 @@ begin
         Move(pPCXv^, pDIBv^, wLineLength);
          if (MulTa <> nil)
         then begin
-             Proz   := round(y * ProzFaktor);
-             bAbort := TMultiTasking(MulTa)(DMG_Repack, Proz);
+             Percent   := round(y * PercentFactor);
+             bAbort := TMultiTasking(MulTa)(Percent);
              if bAbort then exit;
         end {MultiTasking};
      end;
@@ -163,19 +163,19 @@ end {procedure Repack1or8};
 {----------------------------------------------	Repack2or4}
 procedure Repack2or4;
 const
-qMaske          = $80;
+qMask          = $80;
 zmask1hb        = $20;
 zmask2hb        = $02;
 var
 pDIBv, pPCXv    : ^byte;
 p1, p2, p3, p4  : pByteArray;
 DIBoff          : longint;
-PCXZeile        : longint;
+PCXBPL          : longint;
 cqPix, czPix    : word;
 cHei, cWid      : word;
 x, y            : integer;
 cqmask, czmask  : byte;
-Proz            : longint;
+Percent         : longint;
 begin
   with DMGS
   do begin
@@ -189,7 +189,7 @@ begin
         cHei   := biHeight;
         cWid   := biWidth - 1;
      end {with pBMI^.bmiHeader};
-     PCXZeile := wLineLength * BPP;
+     PCXBPL := wLineLength * BPP;
      DIBoff   := cBMI + cDIB;
      case BPP of
           2: begin
@@ -203,18 +203,18 @@ begin
                p4 := pByteArray(pChar(p3) + wLineLength);
              end {case 4};
      end {case BPP};
-     ProzFaktor := 100 / cHei;
+     PercentFactor := 100 / cHei;
      dec(cHei);
      for y := 0 to cHei
      do begin
         pPCXv := pointer(pWrite + wOffset);
-        inc(wOffset, PCXZeile);
-        Move(pPCXv^, pWriteBuf^, PCXZeile);
+        inc(wOffset, PCXBPL);
+        Move(pPCXv^, pWriteBuf^, PCXBPL);
         fillchar(pReadBuf^, cDIBline, #0);
-        cqmask := qMaske;
+        cqmask := qMask;
         case BPP of
              2: czmask := zmask1hb;
-             4: czmask := qMaske;
+             4: czmask := qMask;
              else czmask := 0;
         end {case BPP};
         cqPix  := 0;
@@ -250,7 +250,7 @@ begin
                      czmask := czmask SHR 1;
                      if (czmask = 0)
                      then begin
-                          czmask := qMaske;
+                          czmask := qMask;
                           inc(czPix);
                      end;
                    end {case 4};
@@ -259,7 +259,7 @@ begin
            cqmask := cqmask SHR 1;
            if (cqmask = 0)
            then begin
-                cqmask := qMaske;
+                cqmask := qMask;
                 inc(cqPix);
            end;
         end;
@@ -268,8 +268,8 @@ begin
         Move(pReadBuf^, pDIBv^, cDIBline);
         if (MulTa <> nil)
         then begin
-             Proz   := round(y * ProzFaktor);
-             bAbort := TMultiTasking(MulTa)(DMG_Repack, Proz);
+             Percent:= round(y * PercentFactor);
+             bAbort := TMultiTasking(MulTa)(Percent);
              if bAbort then exit;
         end {MultiTasking};
      end;
@@ -284,7 +284,7 @@ var pR, pG, pB: pChar;
     x, y: word;
     cHei, cWid: word;
     PCXZeile: longint;
-    Proz: longint;
+    Percent: longint;
 begin
   with DMGS
   do begin
@@ -293,7 +293,7 @@ begin
      DIBoff   := cDIB + cBMI;
      cHei     := pBMI^.bmiHeader.biHeight;
      cWid     := pBMI^.bmiHeader.biWidth - 1;
-     ProzFaktor := 100 / cHei;
+     PercentFactor := 100 / cHei;
      pR := pChar(pWriteBuf);
      pG := pR + wLineLength;
      pB := pG + wLineLength;
@@ -313,8 +313,8 @@ begin
         Move(pReadBuf^, pDIBv^, cDIBline);
         if (MulTa <> nil)
         then begin
-             Proz   := round(y * ProzFaktor);
-             bAbort := TMultiTasking(MulTa)(DMG_Repack, Proz);
+             Percent   := round(y * PercentFactor);
+             bAbort := TMultiTasking(MulTa)(Percent);
              if bAbort then exit;
         end {MultiTasking};
      end;
@@ -327,11 +327,6 @@ var cWid, cHei: word;
     PCXHeader: tPCXHeader;
 begin
   Result := false;
-  if not(GetPictureStream)
-  then begin
-       ExitConvProc(mg_LastError);
-       exit;
-  end;
   if not(GetHeader(@PCXHeader))
   then begin
        ExitConvProc(mg_LastError);

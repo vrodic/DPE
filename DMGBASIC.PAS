@@ -3,14 +3,29 @@ unit Dmgbasic;
 Interface
 
 uses Windows, SysUtils, Classes;
-{$I DMGRAFI.PAS}
-{----------------------------------------------	Bitmap-Header}
+
+{----------------------------------------------	StandardErrors}
 const
-Bitmap_Type	= $4d42;			{'BM' - lo/hi}
+MGERR_CANCEL     = 128;
+MGERR_NOMEMORY   = 129;
+MGERR_WRONGFORM  = 131;
+MGERR_READOPEN   = 132;
+MGERR_READERROR  = 134;
+{----------------------------------------------	DIB-Palette}
+type
+tRGBType        = (Red, Green, Blue);
+pRGBColor	= ^tRGBColor;
+tRGBColor       = array[tRGBType] of byte;
+{----------------------------------------------	Raw-Palette}
+type
+pRawPalette     = ^tRawPalette;
+tRawPalette     = array[0..255] of tRGBColor;
+{----------------------------------------------	MultiTasking-Function}
+{ cProgress : progress in percent             }
+type
+tMultiTasking   = function(cProgress: longint): boolean;
 {----------------------------------------------	Longint-Operations}
 const
-MP              = 7;
-Multipli        = 1 SHL MP;
 MaxSmallInt     = 32767;
 {----------------------------------------------	IO-Buffer}
 const
@@ -18,8 +33,8 @@ cIOBufLen       = 8192 * 2;
 Flush_Buffer    = $1ff;
 {----------------------------------------------	DIB-Types}
 type
-tBGRColVal      = (Bc, Gc, Rc);
-tBGRColor       = array[tBGRColVal] of byte;
+tBGRColVal    = (Bc, Gc, Rc);
+tBGRColor     = array[tBGRColVal] of byte;
 tBGRArr       = array[0..MaxSmallInt] of tBGRColor;
 pBGRArr       = ^tBGRArr;
 {----------------------------------------------	structures for converter}
@@ -31,7 +46,6 @@ tDMGS           = record
                   rError        : bool;
                   wError        : bool;
                   {---------------------------- Stream}
-                  ImageName      : string;
                   StreamOpen    : boolean;
                   Stream        : tStream;
                   rSize         : longint;
@@ -61,96 +75,40 @@ tDMGS           = record
                   BPP           : word;
                   Palette       : tRawPalette;
 end {record tDMGS};
-{----------------------------------------------	Types for Resize}
-type
-tIntArray       = array[0..MaxSmallInt] of smallint;
-pIntArray       = ^tIntArray;
-{----------------------------------------------	Types for Resample}
-type
-tGrenz          = (Erster, Letzter);
-tPixel          = array[tGrenz] of smallint;
-tPixelTab       = array[0..MaxSmallInt] of tPixel;
-pPixelTab       = ^tPixelTab;
-tRand           = array[tGrenz] of smallint;
-tRandTab        = array[0..MaxSmallInt] of tRand;
-pRandTab        = ^tRandTab;
-{----------------------------------------------	Structure for Color/Sizing}
-type
-pDMCoSi         = ^tDMCoSi;
-tDMCoSi         = record
-                  {---------------------------- DIB}
-                  pqBMI       : pBitmapInfo;
-                  cqWid       : word;
-                  cqHei       : word;
-                  {---------------------------- DIB}
-                  pzBMI       : pBitmapInfo;
-                  czWid       : word;
-                  czHei       : word;
-                  {---------------------------- ReadBuffer}
-                  pqBuf       : pointer;
-                  cqLen       : longint;
-                  {---------------------------- WriteBuffer}
-                  pzBuf       : pointer;
-                  czLen       : longint;
-                  {---------------------------- ResizeTables}
-                  xIdx, yIdx  : pIntArray;
-                  {---------------------------- ResampleTables}
-                  pyPix, pxPix: pPixelTab;
-                  pyRnd, pxRnd: pRandTab;
-end {record tDMCoSi};
-{----------------------------------------------	Image Format}
-type
-tImageFormat     = (tbf_Unknown, tbf_BMP, tbf_JPG, tbf_TGA, tbf_PCX);
-
 {==============================================	global Variables}
 
 {---------------------------------------------- ErrorHandling}
 var
 mg_LastError    : word;
-{----------------------------------------------}
-rFWF            : word;
 {---------------------------------------------- Structures}
-InMemory        : boolean;
 DMGS            : tDMGS;
-DMCoSi          : tDMCoSi;
 {---------------------------------------------- MultiTasking}
 MulTa           : TFarProc;
-ProzFaktor      : single;
-{---------------------------------------------- JPEG}
-JPEG_Palette    : boolean;
-JPEG_GrayScale  : boolean;
-JPEG_DitherMode : integer;
-JPEG_TwoPass    : boolean;
-JPEG_Quality    : integer;
+PercentFactor   : single;
 
 
 {==============================================	exported Basic-Functions}
-function  mg_GetNumColors(BMI: pBitmapInfo): longint; stdcall;
-function  mg_GetPaletteSize(BMI: pBitmapInfo): longint; stdcall;
-function  mg_GetDIBSize(cWid, cHei: longint; BPP: word): longint; stdcall;
+function  mg_MakeBMPfromDIB(pBMI: pBitmapInfo): hBitmap;
+function  mg_GetDIBSize(cWid, cHei: longint; BPP: word): longint;
 function  mg_SetupDIB(Palette: pRawPalette; cWid, cHei, cDIB, cBMI: longint;
-          BPP: word): pBitmapInfo; stdcall;
+          BPP: word): pBitmapInfo;
 
 {==============================================	helpers}
 function  GetStreamByte: byte;
 procedure SetExpandByte(Pix: smallint);
-function  GetPictureStream: boolean;
+function  GetPictureStream(var FStream : TMemoryStream): boolean;
 procedure FreePictureStream;
 function  GetBufferMem: boolean;
 function  GetExpandedMem: boolean;
 procedure FreeExpandedMem;
-function  GetResizeTabelle: boolean;
-function  GetResampleTabelle: boolean;
-function  GetCoSiBuf: boolean;
-procedure ExitConvProc(Fehler: word);
-procedure ExitCoSiProc(Fehler: word);
+procedure ExitConvProc(ErrorN: word);
 
 Implementation
 
 {----------------------------------------------	GetStreamByte}
 function GetStreamByte: byte;
 var
-Proz            : integer;
+Percent            : integer;
 begin
   with DMGS
   do begin
@@ -171,8 +129,8 @@ begin
           {----- MultiTasking}
           if (MulTa <> nil)
           then begin
-               Proz   := Round(rOffset * ProzFaktor);
-               bAbort := tMultiTasking(MulTa)(DMG_Expand, Proz);
+               Percent := Round(rOffset * PercentFactor);
+               bAbort := tMultiTasking(MulTa)(Percent);
           end {MultiTasking};
      end
      else begin
@@ -219,31 +177,15 @@ begin
   end {with DMGS};
 end {procedure SetExpandByte};
 {----------------------------------------------	GetPictureStream}
-function GetPictureStream: boolean;
-const
-fmFileOpen      = fmOpenRead OR fmShareDenyWrite;
-var
-FileStream      : tFileStream;
-MemStream       : tMemoryStream;
+function GetPictureStream(var FStream : TMemoryStream): boolean;
 begin
   try
     with DMGS
     do begin
        StreamOpen := false;
-       {-------- MemoryStream}
-       if InMemory
-       then begin
-            MemStream := tMemoryStream.Create;
-            MemStream.LoadFromFile(ImageName);
-            Stream := MemStream;
-       end {MemoryStream}
-       {-------- FileStream}
-       else begin
-            FileStream := tFileStream.Create(ImageName, fmFileOpen);
-            Stream := FileStream;
-       end;
+       Stream := FStream;
        rSize := Stream.Size;
-       ProzFaktor := 100 / rSize;
+       PercentFactor := 100 / rSize;
        StreamOpen := true;
        Result := true;
     end {DMGS};
@@ -321,203 +263,23 @@ begin
        pWrite := nil;
   end;
 end {procedure FreeExpandedMem};
-{----------------------------------------------	GetResizeTabelle}
-function  GetResizeTabelle: boolean;
-var
-Faktor          : single;
-Index           : smallint;
-begin
-  with DMCoSi
-  do try
-     GetMem(xIdx, sizeof(smallint) * czWid);
-     GetMem(yIdx, sizeof(smallint) * czHei);
-     Faktor := czWid / cqWid;
-     for Index := 0 to czWid - 1 do xIdx^[Index] := round(Index / Faktor);
-     Faktor := czHei / cqHei;
-     for Index := 0 to czHei - 1 do yIdx^[Index] := round(Index / Faktor);
-  except
-    On EOutOfMemory do mg_LastError := MGERR_NOMEMORY;
-  end;
-  Result := mg_LastError = 0;
-end {function GetResizeTabelle};
-{----------------------------------------------	FreeResizeTabelle}
-procedure FreeResizeTabelle;
-begin
-  with DMCoSi
-  do begin
-     if (xIdx <> nil)
-     then begin
-          FreeMem(xIdx);
-          xIdx := nil;
-     end;
-     if (yIdx <> nil)
-     then begin
-          Freemem(yIdx);
-          yIdx := nil;
-     end;
-  end {with DMCoSi};
-end {procedure FreeResizeTabelle};
-{----------------------------------------------	GetResampleTabelle}
-function  GetResampleTabelle: boolean;
-var
-rSFy, rSFx      : single;
-rEQP, rLQP      : single;
-Fak1, Fak2      : single;
-Hilfe           : single;
-iEQP, iLQP      : smallint;
-Index           : smallint;
-begin
-  with DMCoSi
-  do try
-     GetMem(pyPix, sizeof(tPixel) * czHei);
-     GetMem(pxPix, sizeof(tPixel) * czWid);
-     GetMem(pyRnd, sizeof(tRand) * czHei);
-     GetMem(pxRnd, sizeof(tRand) * czWid);
-     rSFy := cqHei / czHei;
-     rSFx := cqWid / czWid;
-     rFWF := round(rSFY * rSFx * Multipli);
-     for index := 0 to czHei - 1
-     do begin
-        rEQP := rSFy * index;
-        rLQP := rSFy * (index + 1);
-        iEQP := trunc(rEQP);
-        iLQP := trunc(rLQP);
-        if (iLQP >= rLQP) then dec(iLQP);
-        if (cqHei > czHei)
-        then begin
-             {-- SampleDown}
-             Fak1 := 1 + iEQP - rEQP;
-             Fak2 := rLQP - iLQP;
-        end
-        else begin
-             {-- SampleUp}
-             Hilfe := iLQP / rSFy;
-             Fak1  := Hilfe - index;
-             Fak2  := index + 1 - Hilfe;
-        end;
-        pyPix^[index, Erster]  := iEQP;
-        pyPix^[index, Letzter] := iLQP;
-        pyRnd^[index, Erster]  := round(Fak1 * Multipli);
-        pyRnd^[index, Letzter] := round(Fak2 * Multipli);
-     end;
-     for index := 0 to czWid - 1
-     do begin
-        rEQP := rSFx * index;
-        rLQP := rSFx * (index + 1);
-        iEQP := trunc(rEQP);
-        iLQP := trunc(rLQP);
-        if (iLQP >= rLQP) then dec(iLQP);
-        if (cqWid > czWid)
-        then begin
-             {-- SampleDown}
-             Fak1 := 1 + iEQP - rEQP;
-             Fak2 := rLQP - iLQP;
-        end
-        else begin
-             {-- SampleUp}
-             Hilfe := iLQP / rSFx;
-             Fak1  := Hilfe - index;
-             Fak2  := index + 1 - Hilfe;
-        end;
-        pxPix^[index, Erster]  := iEQP;
-        pxPix^[index, Letzter] := iLQP;
-        pxRnd^[index, Erster]  := round(Fak1 * Multipli);
-        pxRnd^[index, Letzter] := round(Fak2 * Multipli);
-     end;
-  except
-    On EOutOfMemory do mg_LastError := MGERR_NOMEMORY;
-  end;
-  Result := mg_LastError = 0;
-end {function GetResampleTabelle};
-{----------------------------------------------	FreeResampleTabelle}
-procedure FreeResampleTabelle;
-begin
-  with DMCoSi
-  do begin
-     if (pyPix <> nil)
-     then begin
-          FreeMem(pyPix);
-          pyPix := nil;
-     end;
-     if (pxPix <> nil)
-     then begin
-          FreeMem(pxPix);
-          pxPix := nil;
-     end;
-     if (pyRnd <> nil)
-     then begin
-          FreeMem(pyRnd);
-          pyRnd := nil;
-     end;
-     if (pxRnd <> nil)
-     then begin
-          FreeMem(pxRnd);
-          pxRnd := nil;
-     end;
-  end {with DMCoSi};
-end {procedure FreeResampleTabelle};
-{----------------------------------------------	GetCoSiBuf}
-function GetCoSiBuf: boolean;
-begin
-  with DMCoSi
-  do try
-     Getmem(pqBuf, cqLen + 1);
-     GetMem(pzBuf, czLen + 1);
-  except
-    On EOutOfMemory do mg_LastError := MGERR_NOMEMORY;
-  end;
-  Result := mg_LastError = 0;
-end {function GetCoSiBuf};
-{----------------------------------------------	FreeCoSiBuf}
-procedure FreeCoSiBuf;
-begin
-  with DMCoSi
-  do begin
-     if (pqBuf <> nil)
-     then begin
-          FreeMem(pqBuf);
-          pqBuf := nil;
-     end;
-     if (pzBuf <> nil)
-     then begin
-          Freemem(pzBuf);
-          pzBuf := nil;
-     end ;
-  end {with DMGS};
-end {procedure FreeCoSiBuf};
 {----------------------------------------------	ExitConvProc}
-procedure ExitConvProc(Fehler: word);
+procedure ExitConvProc(ErrorN: word);
 begin
   FreePictureStream;
   FreeExpandedMem;
   FreeBufferMem;
   with DMGS
-  do if (pBMI <> nil) AND (Fehler <> 0)
+  do if (pBMI <> nil) AND (ErrorN <> 0)
   then begin
        FreeMem(pBMI);
        pBMI := nil;
   end;
-  mg_LastError := Fehler;
+  mg_LastError := ErrorN;
 end {procedure ExitConvProc};
-{----------------------------------------------	ExitCoSiProc}
-procedure ExitCoSiProc(Fehler: word);
-begin
-  FreeCoSiBuf;
-  FreeResizeTabelle;
-  FreeResampleTabelle;
-  with DMCoSi
-  do if (pzBMI <> nil) AND (Fehler <> 0)
-  then begin
-       FreeMem(pzBMI);
-       pzBMI := nil;
-  end;
-  mg_LastError := Fehler;
-end {procedure ExitCoSiProc};
-
-{----------------------------------------------	mg_GetNumColors}
+{---------------------------------------------- mg_GetNumColors}
 function mg_GetNumColors(BMI: pBitmapInfo): longint;
-var
-ColorB		: longint;
+var ColorB: longint;
 begin
   with BMI^.bmiHeader do ColorB := 1 SHL (biBitCount * biPlanes);
   Result := ColorB AND $1ff;
@@ -583,5 +345,26 @@ begin
     end;
   end;
 end {function mg_SetupDIB};
+{----------------------------------------------	mg_MakeBMPfromDIB}
+function mg_MakeBMPfromDIB(pBMI: pBitmapInfo): hBitmap;
+var
+DC        : hDC;
+pHilf     : pointer;
+Offset    : longint;
+begin
+  Result := 0;
+  if (pBMI = nil) then exit;
+  DC := GetDC(0);
+  if (DC <> 0)
+  then begin
+       Offset := sizeof(tBitmapInfoHeader) + mg_GetPaletteSize(pBMI);
+       pHilf  := pChar(pBMI) + Offset;
+       {-------- Bitmap creating}
+       Result := CreateDIBitmap(DC, pBMI^.bmiHeader, cbm_Init,
+                 pHilf, pBMI^, dib_RGB_Colors);
+       {-------- DisplayContext release}
+       ReleaseDC(0, DC);
+  end {DisplayContext not valid};
+end {function mg_MakeBMPfromDIB};
 
 end.

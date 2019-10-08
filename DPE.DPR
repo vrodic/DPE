@@ -6,7 +6,23 @@ uses
   photo in 'photo.pas' {FPhoto},
   newimg in 'Newimg.pas' {NewImgF},
   splash in 'splash.pas' {SplashScreen},
-  FS_UN in 'FS_UN.pas' {FullSCR};
+  FS_UN in 'FS_UN.pas' {FullSCR},
+  rotun in 'rotun.pas' {RotateDLG},
+  adclrun in 'adclrun.pas' {ADCLRDLG},
+  ldun in 'Ldun.pas' {LDDialog},
+  solaun in 'solaun.pas' {SolarizeDLG},
+  abox in 'Abox.pas' {AboutBox},
+  ffpun in 'ffpun.pas' {ffpfrm},
+  rszun in 'rszun.pas' {rszDLG},
+  epun in 'epun.pas' {epfrm},
+  crszun in 'crszun.pas' {crszfrm},
+  ablendun in 'ablendun.pas' {ablendDLG},
+  MFImp in 'Mfimp.pas' {WMFImp},
+  btnzun in 'btnzun.pas' {btneffdlg},
+  adbrdrun in 'adbrdrun.pas' {AddBRDRDLG},
+  prun in 'prun.pas' {prDLG},
+  conun in 'conun.pas' {AContrastDLG},
+  ccun in 'ccun.pas' {CCDLG};
 
 {$R *.RES}
 
@@ -17,8 +33,6 @@ begin
   Application.Title := 'Digital Photo Editor';
   Application.Initialize;
   Application.CreateForm(TDPEMain, DPEMain);
-  Application.CreateForm(TNewImgF, NewImgF);
-  Application.CreateForm(TFullSCR, FullSCR);
   SplashScreen.Hide;
   SplashScreen.Free;
   Application.Run;
