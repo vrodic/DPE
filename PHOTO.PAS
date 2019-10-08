@@ -49,6 +49,7 @@ type
     procedure SaveAsImage;
     procedure SaveUndo;
     procedure DoUndo;
+    procedure ClearUndo; // Clears undo buffer 
     {----------------}
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
@@ -1453,7 +1454,7 @@ begin
 if WindowState = wsNormal then
 begin
   tmp := DPEMain.ClientRect;
-  //AutoScroll := False;
+  AutoScroll := False;
   bx := False;
   by := False;
   if x - Left < tmp.Right then
@@ -1475,7 +1476,7 @@ begin
   end;
   if bx and (not by) then Width := Width +GetSystemMetrics(SM_CYHSCROLL);
   if by and (not bx) then Height := Height + GetSystemMetrics(SM_CXVSCROLL);
-  //AutoScroll := True;
+  AutoScroll := True;
 end;
 end;
 
@@ -1704,11 +1705,8 @@ end;
 procedure TFPhoto.SaveUndo;
 begin
   if dpemform.UndoDisabled then Exit;
-  if UA {UndoBitmap <> nil} then
-  //begin
+  if UA then
     UndoBitmap.Free;
-    //UndoBitmap := nil;
-  //end;
   UndoBitmap := TBitmap.Create;
   UndoBitmap.PixelFormat := Photo.Picture.Bitmap.PixelFormat;
   UndoBitmap.Palette := Photo.Picture.Bitmap.Palette;
@@ -1723,11 +1721,25 @@ procedure TFPhoto.DoUndo;
 begin
  UA := False;
  Photo.Picture.Bitmap.Assign(UndoBitmap);
+ // The folowing line of code is here to notify to
+ // RTL that it should copy Photo.Picture.Bitmap
+ // (make it non-dependent to UndoBitmap)
+ //Photo.Canvas.Pixels[0,0] := Photo.Canvas.Pixels[0,0];
+ /////////////////////////////////////////////////////
  UndoBitmap.Free;
  //UndoBitmap := nil;
  if Resized then FitImage(Photo.Picture.Width, Photo.Picture.Height);
  Resized := False;
  FormActivate(Self);
+end;
+
+procedure TFPhoto.ClearUndo;
+begin
+ if UA then
+ begin
+   UndoBitmap.Free;
+   UA := false;
+ end;
 end;
 
 {new functions}

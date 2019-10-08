@@ -1187,12 +1187,13 @@ if MDIChildCount = 0 then exit;
 if MessageDlg('Lose all changes since your last save?',
    mtConfirmation, [mbYes, mbNo], 0) = idNo then exit;
 tft := TFPhoto(ActiveMDIChild);
+tft.ClearUndo;
 filename := tft.PhotoName;
 pic := TPicture.Create;
 if not LoadToPicture(pic,FileName) then exit;
 tft.Photo.Picture.Assign(pic);
-LoadFinalize(pic,FileName);
 tft.Modified := False;
+LoadFinalize(pic,FileName);
 end;
 
 procedure TDPEMain.MNUPrintClick(Sender: TObject);

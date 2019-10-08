@@ -30,8 +30,7 @@ pzBitmap       : TBitmap;
 
 {---------------------------------------------- MultiTasking}
 MultiTask           : TFarProc;
-PercentFactor      : single;
-var LastError : word;
+LastError : word;
 
 {----------------------------------------------	Color Constants}
 const
@@ -82,12 +81,12 @@ cHBROutCol      : longint;
 
 {----------------------------------------------	Histogramm}
 function Histogramm: boolean;
-var
-p24 : PRGBByteArray;
-h               : integer;
-Percent         : integer;
-r, g, b         : byte;
-y, x            : integer;
+var  p24 : PRGBByteArray;
+     h               : integer;
+     Percent         : integer;
+     r, g, b         : byte;
+     y, x            : integer;
+     PercentFactor   : single;
 begin
   with pBoxArr^[0]
   do begin
@@ -391,13 +390,13 @@ begin
 end {function MakeRGBmap};
 {----------------------------------------------	ChangeTheColors}
 function ChangeTheColors: boolean;
-var
-p24 : PRGBByteArray;
-p8  : PByteArray;
-Proz            : longint;
-b, g, r         : integer;
-y, x            : integer;
-p               : integer;
+var p24           : PRGBByteArray;
+    p8            : PByteArray;
+    Proz          : longint;
+    b, g, r       : integer;
+    y, x          : integer;
+    p             : integer;
+    PercentFactor : single;
 begin
   PercentFactor := 100 / pzBitmap.Height;
   for y := 0 to pzBitmap.Height - 1
