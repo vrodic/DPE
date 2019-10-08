@@ -4,7 +4,7 @@ interface
 
 uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
-  Menus, ExtCtrls,ColorMan,Dither,bmp2gif;
+  Menus, ExtCtrls,ColorMan,Dither;
 
 type
   TDrawingTool = (dtLine, dtRectangle, dtEllipse, dtRoundRect);
@@ -77,12 +77,18 @@ type
 
   end;
 
-function PrepareGrayPalette : HPalette;
+function CreateGrayPalette : HPalette;
+//function CreateSpectrumPalette : hpalette;
+
 var
   FPhoto: TFPhoto;
 
 const DefName = 'Image';
       UBASTR = 'You cannot use the eraser brush at this time.';
+
+      PALVERSION = $300;
+      MAXPALETTE = 256;       // max. # supported palette entries
+
 implementation
 
 uses dpemform, newimg,Resample;
@@ -96,14 +102,15 @@ var
     RetBMP : TBitmap;
     Mover : Boolean;
     Eraser : Boolean;
-function PrepareGrayPalette : HPalette;
+
+function CreateGrayPalette : HPalette;
 var Pal : TMaxLogPalette;
     PalEntry : TPaletteEntry;
     i : word;
 begin
-pal.palVersion := $300;
-pal.palNumEntries := 256;
-for i := 0 to 255 do
+pal.palVersion := PALVERSION;
+pal.palNumEntries := MAXPALETTE;
+for i := 0 to MAXPALETTE-1 do
 begin
      palentry.peRed := i;
      palentry.peGreen := i;
@@ -114,22 +121,58 @@ end;
 Result := CreatePalette(PLogPalette(@Pal)^);
 end;
 
+{function CreateSpectrumPalette : hpalette;
+var
+    lgPal : TMaxLogPalette;
+    red, green, blue : byte;
+    i : integer;
+
+ function tmp(var input : byte; add : byte) : boolean;
+ var  tval : integer;
+ begin
+  result := true;
+  tval := input;
+  if tval +add > 255 then
+  begin
+    result := false;
+    input := 255;
+  end else input := input + add;
+ end;
+
+begin
+  lgPal.palVersion := PALVERSION;
+  lgPal.palNumEntries := MAXPALETTE;
+  red := 0;  green := 0; blue := 0;
+  for i := 0 to MAXPALETTE-1 do
+  begin
+        lgPal.palPalEntry[i].peRed   := red;
+        lgPal.palPalEntry[i].peGreen := green;
+        lgPal.palPalEntry[i].peBlue  := blue;
+        lgPal.palPalEntry[i].peFlags := 0;
+        if (tmp(red,32)) then
+            if (tmp(green,32)) then
+                blue := blue + 64;
+
+  end;
+  Result := CreatePalette(PLogPalette(@lgPal)^);
+end;}
+
 function Invert8bitPalette(HPal : HPalette) : HPalette;
 var pal :TMaxLogPalette;
     PalEntry : TPaletteEntry;
     i : word;
 begin
-pal.palVersion := $300;
-pal.palNumEntries := 256;
-GetPaletteEntries(hpal,0,256,Pal.palpalentry);
-for i := 0 to 255 do
+pal.palVersion := PALVERSION;
+pal.palNumEntries := MAXPALETTE;
+GetPaletteEntries(hpal,0,MAXPALETTE,Pal.palpalentry);
+for i := 0 to MAXPALETTE do
 begin
-palentry := pal.palpalentry[i];
-palentry.peRed := not palentry.peRed;
-palentry.peGreen := not palentry.peGreen;
-palentry.peBlue := not palentry.peBlue;
-palentry.peFlags := 0;
-pal.palpalentry[i] := palentry;
+  palentry := pal.palpalentry[i];
+  palentry.peRed := not palentry.peRed;
+  palentry.peGreen := not palentry.peGreen;
+  palentry.peBlue := not palentry.peBlue;
+  palentry.peFlags := 0;
+  pal.palpalentry[i] := palentry;
 end;
 Result := CreatePalette(PLogPalette(@Pal)^);
 end;
@@ -146,7 +189,7 @@ else
 begin
      if FileExt = '.bmp' then Photo.Picture.Bitmap.SaveToFile(PhotoName);
      if (FileExt = '.jpg') or (FileExt = '.jpe') then DPEMain.SaveToJPEG(Photo.Picture.Bitmap,PhotoName);
-     if FileExt = '.gif' then DPEMain.SavetoGif(Photo.Picture.Bitmap,PhotoName);
+     if FileExt = '.gif' then DPEMain.SaveToGif(Photo.Picture.Bitmap,PhotoName);
      Modified := False;
      Saved := True;
 end;
@@ -172,7 +215,7 @@ begin
        try
          if (FileExt = '.jpg') or (FileExt = '.jpe') then DPEMain.SavetoJPEG(Photo.Picture.Bitmap,tmp) else if FileExt = '.bmp' then
           Photo.Picture.Bitmap.SaveToFile(tmp)
-           else if (FileExt = '.gif') then DPEMain.SavetoGif(Photo.Picture.Bitmap,tmp);
+           else if (FileExt = '.gif') then DPEMain.SaveToGif(Photo.Picture.Bitmap,tmp);
        finally
          Screen.Cursor := crDefault;
        end;
@@ -684,7 +727,7 @@ outbitmap := TBitmap.Create;
 outbitmap.PixelFormat := pf8bit;
 outbitmap.Width := tempbmp.Width;
 outbitmap.Height := tempbmp.Height;
-outbitmap.Palette := PrepareGrayPalette;
+outbitmap.Palette := CreateGrayPalette;
 //tempbmp.PixelFormat := pf24bit;
 for y := 0 to tempbmp.height -1 do
 begin
@@ -1690,13 +1733,13 @@ end;
 {new functions}
 function GetMediaContrast(bitmap:TBitmap):integer;
 var
-   bmp:windows.tbitmap;
+   bmp:Windows.TBitmap;
    q,w,h:integer;
    mm:integer;
    mt:integer;
    x,y:integer;
 begin
-   getobject(Bitmap.handle,sizeof(bmp),@bmp);
+   GetObject(Bitmap.handle,sizeof(bmp),@bmp);
    if bmp.bmBitsPixel<> 24 then exit;
    q:=1;
    mt:=0;
@@ -1715,12 +1758,12 @@ end;
 
 procedure Contrast(bitmap:TBitmap;vv:integer;mm:integer);
 var
-   bmp:windows.tbitmap;
+   bmp:Windows.TBitmap;
    e,w,h:integer;
    vd:double;
    x,y:integer;
 begin
-   getobject(Bitmap.handle,sizeof(bmp),@bmp);
+   GetObject(Bitmap.handle,sizeof(bmp),@bmp);
    if bmp.bmBitsPixel<>24 then Exit;
    if vv>=0 then vd:=1+vv/10
       else vd:= 1-sqrt(-vv)/10;

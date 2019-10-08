@@ -31,19 +31,23 @@ type
 var
   epfrm: Tepfrm;
 
-function ShowEPFrm(var TheColor : TColor) : integer;
+function ShowEPFrm(var TheColor : TColor; SelectPal : boolean) : integer;
 
 implementation
 
 {$R *.DFM}
 
+
 uses dpemform,photo;
+
+const SELSTR = 'Select Color From Palette';
 var tft : TFPhoto;
     Colors : integer;
-function ShowEPFrm(var TheColor : TColor) : integer;
+function ShowEPFrm(var TheColor : TColor; SelectPal : boolean) : integer;
 begin
   with TEPFrm.Create(Application) do
   try
+    if SelectPal then Caption := SELSTR;
     result := ShowModal;
     if result = mrOk then TheColor := PaletteEdit.CurrentColor;
   finally

@@ -3,8 +3,7 @@ unit PcxTga;
 interface
 
 uses
-  Windows, SysUtils, Classes, Graphics,
-  DmgBasic, DmgMain;
+  Windows, SysUtils, Classes, Graphics;
 
 type
 
@@ -13,8 +12,8 @@ type
   private
     { Private declarations }
   public
-    constructor Create; override;
-    destructor Destroy; override;
+    {constructor Create; override;
+    destructor Destroy; override;}
     procedure LoadFromStream(Stream: TStream); override;
   end;
 
@@ -23,20 +22,19 @@ type
   private
     { Private declarations }
   public
-    constructor Create; override;
-    destructor Destroy; override;
+    {constructor Create; override;
+    destructor Destroy; override;}
     procedure LoadFromStream(Stream: TStream); override;
   end;
 
 
 implementation
 
+uses DmgBasic,DMGMain;
 const TGAc = 1;
       PCXc = 2;
-      ERRbmpSTR = 'Error on Converting to BMP!';
-      LOADERRSTR = 'Error on Load!';
 
-constructor TPcxMap.Create;
+{constructor TPcxMap.Create;
 begin
   inherited Create;
 end;
@@ -54,7 +52,7 @@ end;
 destructor TTgaMap.Destroy;
 begin
   inherited Destroy;
-end;
+end;}
 
 procedure TPcxmap.LoadFromStream(Stream: TStream);
 var Bitmap  : hBitmap;

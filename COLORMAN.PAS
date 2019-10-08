@@ -15,6 +15,12 @@ TYPE
      S : byte;
      V : byte;
   end;
+  TCMYKColor = record
+     C : byte;
+     M : byte;
+     Y : byte;
+     K : byte;
+  end;
   PRGBByteArray = ^TRGBByteArray;
   TRGBByteArray = array[0..32767] of TTrueColor;
 
@@ -57,6 +63,8 @@ function HSVTC(H, S, V : integer) : THSVColor;
 PROCEDURE HLStoRGB (CONST H,L,S:  INTEGER;    {h IN 0..359; l,s IN 0..255}
                     VAR   RGB:  TTrueColor);  {r, g and b IN [0..255]}
 function HSVtoRGB (HSV: THSVColor) :TTrueColor;
+function CMYKtoRGB (CMYK : TCMYKColor) : TTrueColor;
+
 FUNCTION RGBIntensity(CONST RGB:  TTrueColor):  INTEGER;
 FUNCTION RGBLightness(CONST RGB:  TTrueColor):  INTEGER;
 FUNCTION RGBSaturation(CONST RGB:  TTrueColor):  INTEGER;
@@ -65,6 +73,7 @@ PROCEDURE RGBtoHLS (CONST RGB:    TTrueColor; {r, g and b IN [0..255]}
                     VAR   H,L,S:  integer);   {h IN 0..359; l,s IN 0..255}
 function RGBtoHSV (CONST RGB:    TTrueColor) :  THSVColor;
 function ColorHSVMod(C1 : THSVColor; h,s,v : integer): THSVColor;
+function RGBtoCMYK (CONST RGB : TTrueColor)  : TCMYKColor;
 //function Max(X, Y: Integer): Integer;
 
 implementation
@@ -598,6 +607,53 @@ function ColorHSVMod(C1 : THSVColor;h,s,v : integer) : THSVColor;
 begin
   Result := IHSV(C1.H + H, C1.S + S,
     C1.V + V);
+end;
+
+function CMYKtoRGB (CMYK : TCMYKColor) : TTrueColor;
+begin
+   if (Integer(CMYK.C) + Integer(CMYK.K)) < 255 then
+     Result.Red := 255 - (CMYK.C + CMYK.K) else
+     Result.Red := 0;
+   if (Integer(CMYK.M) + Integer(CMYK.K)) < 255 then
+     Result.Green := 255 - (CMYK.M + CMYK.K) else
+     Result.Green := 0;
+   if (Integer(CMYK.Y) + Integer(CMYK.K)) < 255 then
+     Result.Blue := 255 - (CMYK.Y + CMYK.K) else
+     Result.Blue := 0;
+end;
+
+function RGBtoCMYK (CONST RGB : TTrueColor)  : TCMYKColor;
+begin
+  Result.C := 255 - RGB.Red;
+  Result.M := 255 - RGB.Green;
+  Result.Y := 255 - RGB.Blue;
+  if Result.C < Result.M then
+    Result.K := Result.C else
+    Result.K := Result.M;
+  if Result.Y < Result.K then
+    Result.K := Result.Y;
+  if Result.k > 0 then begin
+    Result.c := Result.c - Result.k;
+    Result.m := Result.m - Result.k;
+    Result.y := Result.y - Result.k;
+  end;
+end;
+
+procedure ColorCorrectCMYK(var CMYK : TCMYKColor);
+var
+  MinColor : byte;
+begin
+  if CMYK.C < CMYK.M then
+    MinColor := CMYK.C else
+    MinColor := CMYK.M;
+  if CMYK.Y < MinColor  then
+    MinColor := CMYK.Y;
+  if MinColor + CMYK.K > 255 then
+    MinColor := 255 - CMYK.K;
+  CMYK.C := CMYK.C - MinColor;
+  CMYK.M := CMYK.M - MinColor;
+  CMYK.Y := CMYK.Y - MinColor;
+  CMYK.K := CMYK.K + MinColor;
 end;
 
 end.

@@ -11,6 +11,9 @@ MGERR_NOMEMORY   = 129;
 MGERR_WRONGFORM  = 131;
 MGERR_READOPEN   = 132;
 MGERR_READERROR  = 134;
+{---------------------------------------------- Error consts}
+ERRbmpSTR = 'Error on Converting to BMP!';
+LOADERRSTR = 'Error on Load!';
 {----------------------------------------------	DIB-Palette}
 type
 tRGBType        = (Red, Green, Blue);
@@ -53,9 +56,8 @@ tDMGS           = record
                   pReadBuf      : pByteArray;
                   rBufLen       : word;
                   rBufOffs      : word;
-                  rLaenge       : longint;
+                  rLength       : longint;
                   rOffset       : longint;
-                  rGelesen      : longint;
                   {---------------------------- Image packers}
                   pWrite        : pChar;
                   wOffset       : longint;
@@ -107,23 +109,22 @@ Implementation
 
 {----------------------------------------------	GetStreamByte}
 function GetStreamByte: byte;
-var
-Percent            : integer;
+var Percent            : integer;
 begin
   with DMGS
   do begin
      Result := 0;
-     if (rBufOffs >= rLaenge)
+     if (rBufOffs >= rLength)
      then begin
-          rLaenge := rSize - rOffset;
-          if (rLaenge <= 0)
+          rLength := rSize - rOffset;
+          if (rLength <= 0)
           then begin
                rError := true;
                exit;
           end;
-          if (rLaenge > rBufLen) then rLaenge := rBufLen;
-          inc(rOffset, rLaenge);
-          rGelesen := Stream.Read(pReadBuf^, rLaenge);
+          if (rLength > rBufLen) then rLength := rBufLen;
+          inc(rOffset, rLength);
+          Stream.Read(pReadBuf^, rLength);
           Result := pReadBuf^[0];
           rBufOffs := 1;
           {----- MultiTasking}
@@ -141,8 +142,7 @@ begin
 end {function GetStreamByte};
 {----------------------------------------------	SetExpandByte}
 procedure SetExpandByte(Pix: smallint);
-var
-Zeiger          : pointer;
+var VPointer         : pointer;
 begin
   with DMGS
   do begin
@@ -150,15 +150,15 @@ begin
      then if (wBufOffs > 0)
      then begin
           if (wOffset + wBufOffs >= wSize) then wBufOffs := wSize - wOffset - 1;
-          Zeiger := pWrite + wOffset;
-          Move(pWriteBuf^, Zeiger^, wBufOffs);
+          VPointer := pWrite + wOffset;
+          Move(pWriteBuf^, VPointer^, wBufOffs);
           exit;
      end;
      if (wBufOffs >= wLaenge)
      then begin
-          Zeiger := pWrite + wOffset;
+          VPointer := pWrite + wOffset;
           inc(wOffset, wLaenge);
-          Move(pWriteBuf^, Zeiger^, wLaenge);
+          Move(pWriteBuf^, VPointer^, wLaenge);
           wLaenge := wSize - wOffset;
           if (wLaenge <= 0)
           then begin
@@ -347,10 +347,9 @@ begin
 end {function mg_SetupDIB};
 {----------------------------------------------	mg_MakeBMPfromDIB}
 function mg_MakeBMPfromDIB(pBMI: pBitmapInfo): hBitmap;
-var
-DC        : hDC;
-pHilf     : pointer;
-Offset    : longint;
+var DC        : hDC;
+    pAddr     : pointer; // address of initialization data
+    Offset    : longint;
 begin
   Result := 0;
   if (pBMI = nil) then exit;
@@ -358,10 +357,10 @@ begin
   if (DC <> 0)
   then begin
        Offset := sizeof(tBitmapInfoHeader) + mg_GetPaletteSize(pBMI);
-       pHilf  := pChar(pBMI) + Offset;
-       {-------- Bitmap creating}
+       pAddr  := pChar(pBMI) + Offset;
+       {-------- Bitmap creation}
        Result := CreateDIBitmap(DC, pBMI^.bmiHeader, cbm_Init,
-                 pHilf, pBMI^, dib_RGB_Colors);
+                 pAddr, pBMI^, dib_RGB_Colors);
        {-------- DisplayContext release}
        ReleaseDC(0, DC);
   end {DisplayContext not valid};

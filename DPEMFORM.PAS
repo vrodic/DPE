@@ -4,9 +4,9 @@ interface
 
 uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
-  Menus, ClipBrd, ComCtrls,ShellAPI, MRUFENG, Registry, GifMap, TifMap,
-  ExtCtrls, VStatus, TB97,Buttons,JPEG,PcxTga, ExtDlgs,ColorMan, Dither,bmp2gif,
-  ColorPanel, StdCtrls;
+  Menus, ClipBrd, ComCtrls,ShellAPI, MRUFENG, Registry, TifMap,
+  ExtCtrls, VStatus, TB97,Buttons,JPEG,PcxTga, ExtDlgs,ColorMan, Dither,
+  ColorPanel, StdCtrls,GIFImage;
 
 type
   TDPEMain = class(TForm)
@@ -182,9 +182,11 @@ type
     MNUFSE: TMenuItem;
     procedure CheckTool(Count : Integer);
     procedure ShowHint(Sender : TObject);
+    function  LoadToPicture(var Picture : TPicture; FileName : String) : boolean;
+    function  LoadFinalize(var Picture : TPicture; FileName : string) : boolean;
     procedure LoadPhoto( FileName : string);
-    procedure SavetoGif(Bitmap: TBitmap; FileName : string);
-    procedure SavetoJPEG(Bitmap : TBitmap;FileName : String);
+    procedure SaveToGif(Bitmap: TBitmap; FileName : string);
+    procedure SaveToJPEG(Bitmap : TBitmap;FileName : String);
     procedure NewImage(X,Y,Depth,BackColor : Word);
     procedure ChannelCombine(rb, gb, bb : TBitmap);
     procedure MNUExitClick(Sender: TObject);
@@ -220,6 +222,7 @@ type
     procedure MNUPrintClick(Sender: TObject);
     procedure MNUSLClick(Sender: TObject);
     procedure LoadJPG(FileName : String; FPicture : TPicture);
+    procedure LoadGIF( FileName : String; FPicture : TPicture);
     procedure LoadICO(FileName : String; FPicture : TPicture);
     procedure EvPrg(Sender :TObject; Stage : TProgressStage; PercentDone: Byte; RedrawNow: Boolean; const R: TRect; const Msg: string);
     procedure MNUSoftenClick(Sender: TObject);
@@ -418,6 +421,20 @@ FPicture.Bitmap.Assign(JPEGImage);
 ProgressBar.Visible := False;
 Screen.Cursor := crDefault;
 JPEGImage.Free;
+end;
+
+procedure TDPEMain.LoadGIF(FileName : String; FPicture : TPicture);
+var GIFImage : TGIFImage;
+begin
+  GIFImage := TGIFImage.Create;
+  try
+    GIFImage.OnProgress := EvPrg;
+    GIFImage.LoadFromFile(FileName);
+    FPicture.Bitmap.Assign(GIFImage);
+  finally
+    GIFImage.Free;
+  end;
+  Screen.Cursor := crDefault;
 end;
 
 procedure TDPEMain.LoadICO(FileName : String; FPicture : TPicture);
@@ -716,11 +733,15 @@ bitmap := TBitmap.Create;
 case Depth of
   0: bitmap.PixelFormat := pf1bit;
   1: bitmap.PixelFormat := pf4Bit;
-  2: bitmap.PixelFormat :=  pf8bit;
+  2:
+  begin
+    bitmap.PixelFormat :=  pf8bit;
+    //bitmap.Palette := CreateSpectrumPalette;
+  end;
   3:
    begin
     bitmap.PixelFormat := pf8bit;
-    bitmap.Palette := PrepareGrayPalette;
+    bitmap.Palette := CreateGrayPalette;
    end;
   4 : bitmap.PixelFormat := pf24bit;
 end;
@@ -763,51 +784,73 @@ begin
 Clipboard.Clear;
 end;
 
-procedure TDPEMain.LoadPhoto(FileName : String);
-var tmp : TPicture;
+function TDPEMain.LoadToPicture(var Picture : TPicture; FileName : String) : boolean;
 begin
+Result := False;
 if not FileExists(FileName) then Raise Exception.Create('Cannot open file ' + FileName);
 FileExt := ANSILowerCase(ExtractFileExt(FileName));
 Screen.Cursor := crHourGlass;
-{there are two decoders included}
-{if you want to use second just }
-{comment "or (FileExt = '.gif')"}
-{in the next line}
 ProgressBar.Position := 0;
 ProgressBar.Visible := True;
-tmp := TPicture.Create;
-if (FileExt = '.bmp') or (FileExt = '.gif') or (FileExt = '.tif') or (FileExt = '.tga') or (FileExt = '.pcx') then
+if (FileExt = '.bmp') or (FileExt = '.tif') or (FileExt = '.tga') or (FileExt = '.pcx') then
 begin
      try
-        tmp.LoadFromFile(FileName);
+        Picture.LoadFromFile(FileName);
      finally
             Screen.Cursor := crDefault;
             ProgressBar.Visible := False;
      end;
 end
-else if (FileExt = '.jpg') or (FileExt = '.jpe') then LoadJPG(FileName, tmp)
-else if (FileExt = '.wmf') or (FileExt = '.emf') then MFImp.ShowWMFImp(FileName,tmp)
-else if (FileExt = '.ico') then LoadICO(FileName,tmp)
+else if (FileExt = '.jpg') or (FileExt = '.jpe') then LoadJPG(FileName, Picture)
+else if (FileExt = '.gif') then LoadGIF(FileName, Picture)
+else if (FileExt = '.wmf') or (FileExt = '.emf') then MFImp.ShowWMFImp(FileName,Picture)
+else if (FileExt = '.ico') then LoadICO(FileName,Picture)
 else
 begin
-     tmp.Free;
+     Picture.Free;
      ProgressBar.Visible := False;
      Screen.Cursor := crDefault;
      Application.MessageBox('The file type of this file is unknown.',Pchar(Application.Title),MB_ICONINFORMATION);
      Exit;
 end;
 LoadedFile := FileName;
-TFPhoto.Create(Self);
-tft := TFPhoto(ActiveMDIChild);
-tft.Photo.Picture.Assign(tmp);
-tft.FitImage(tmp.Width,tmp.Height);
-tmp.Free;
+Result := True;
+end;
+
+function TDPEMain.LoadFinalize(var Picture : TPicture; FileName : string) : boolean;
+begin
+tft.Photo.Picture.Assign(Picture);
+tft.FitImage(Picture.Width,Picture.Height);
+Picture.Free;
 tft.Saved := True;
 tft.FormActivate(Self);
 tft.Photo.Hint := 'File: ' + ExtractFileName(FileName);
 tft.Caption := ExtractFileName(LoadedFile);
-CheckTool(MDIChildCount);
 ProgressBar.Visible := False;
+result := true;
+end;
+
+procedure TDPEMain.LoadPhoto(FileName : String);
+var tmp : TPicture;
+    i : integer;
+begin
+// Check if file is already opened
+if MDIChildCount <> 0 then
+begin
+   for i := MDIChildCount-1 downto 0 do
+    if ANSILowerCase(TFPhoto(MDIChildren[i]).PhotoName) = AnsiLowerCase(FileName) then
+    begin
+      MDIChildren[i].Show;
+      exit;
+    end;
+end;
+//
+tmp := TPicture.Create;
+if not LoadToPicture(tmp,FileName) then Exit;
+TFPhoto.Create(Self);
+tft := TFPhoto(ActiveMDIChild);
+LoadFinalize(tmp,FileName);
+CheckTool(MDIChildCount);
 end;
 
 procedure TDPEMain.Hide1Click(Sender: TObject);
@@ -1066,17 +1109,34 @@ if MDIChildCount = 0 then Exit;
 CheckTool(0);
 end;
 
-procedure TDPEMain.SavetoGif(Bitmap: TBitmap; FileName : string);
+procedure TDPEMain.SaveToGif(Bitmap: TBitmap; FileName : string);
 var tmpbmp : TBitmap;
+    GIFImage : TGIFImage;
 begin
-tmpbmp := TBitmap.Create;
-tmpbmp.Assign(Bitmap);
-case tmpbmp.PixelFormat of pf24bit:  tmpbmp := TrueColorTo256(tmpbmp);
-                           pf4bit,pf1bit : tmpbmp.PixelFormat := pf8bit;
-end;
-if  tmpbmp.Pixelformat <> pf8bit then showmessage ('Unexpected error. Aborting.');
-SaveAsGif(tmpbmp, FileName);
-tmpbmp.Free;
+  ProgressBar.Visible := True;
+  tmpbmp := TBitmap.Create;
+  try
+    tmpbmp.Assign(Bitmap);
+    case tmpbmp.PixelFormat of pf24bit:  tmpbmp := TrueColorTo256(tmpbmp);
+                               pf4bit,pf1bit : tmpbmp.PixelFormat := pf8bit;
+    end;
+    if  tmpbmp.Pixelformat <> pf8bit then
+    begin
+         tmpbmp.Free;
+         raise Exception.Create('Unexpected error. Aborting.');
+    end;
+      GIFImage := TGIFImage.Create;
+      try
+        GIFImage.OnProgress := EvPrg;
+        GIFImage.Assign(tmpbmp);
+        GIFImage.SaveToFile(FileName);
+      finally
+        GIFImage.Free;
+      end;
+  finally
+    tmpbmp.Free;
+    ProgressBar.Visible := False;
+  end;
 end;
 
 procedure TDPEMain.SavetoJPEG(Bitmap : TBitmap;FileName : String);
@@ -1127,12 +1187,15 @@ end;
 
 procedure TDPEMain.MNUReloadClick(Sender: TObject);
 var filename : string;
+    pic : TPicture;
 begin
 if MDIChildCount = 0 then exit;
 tft := TFPhoto(ActiveMDIChild);
 filename := tft.PhotoName;
-tft.Close;
-LoadPhoto(FileName); {This is not solution}
+pic := TPicture.Create;
+if not LoadToPicture(pic,FileName) then Exit;
+tft.Photo.Picture.Assign(pic);
+LoadFinalize(pic,FileName);
 end;
 
 procedure TDPEMain.MNUPrintClick(Sender: TObject);
@@ -1514,7 +1577,7 @@ end;
 procedure TDPEMain.MNUEPalClick(Sender: TObject);
 var tmp : TColor;
 begin
-epun.ShowEpFRM(tmp);
+epun.ShowEpFRM(tmp,False);
 end;
 
 procedure TDPEMain.MNUTileHorzClick(Sender: TObject);
@@ -1679,7 +1742,7 @@ begin
     end;
     pf8bit,pf4bit,pf1bit :
     begin
-      if epun.ShowEPFrm(tmp) = mrOk then ForeColorP.Color := tmp;
+      if epun.ShowEPFrm(tmp,True) = mrOk then ForeColorP.Color := tmp;
     end;
   end;
 end;
@@ -1705,7 +1768,7 @@ begin
     end;
     pf8bit,pf4bit,pf1bit :
     begin
-      if epun.ShowEPFrm(tmp) = mrOk then BackColorP.Color := tmp;
+      if epun.ShowEPFrm(tmp,True) = mrOk then BackColorP.Color := tmp;
     end;
   end;
 end;

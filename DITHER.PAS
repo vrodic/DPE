@@ -23,25 +23,14 @@ ERR_NOMEMORY  = 139;
 type
 tDitherProgress   = function(cProgress: longint): boolean;
 
-{----------------------------------------------	Structure for Color/Sizing}
-type
-tDMCoSi         = record
-                  {---------------------------- DIB}
-                  pqBMI       : TBitmap;
-                  cqWid       : word;
-                  cqHei       : word;
-                  {---------------------------- DIB}
-                  pzBMI       : TBitmap;
-                  czWid       : word;
-                  czHei       : word;
-
-end {record tDMCoSi};
-
+{----------------------------------------------	Bitmaps }
 var
-DMCoSi          : tDMCoSi;
+pqBitmap       : TBitmap;
+pzBitmap       : TBitmap;
+
 {---------------------------------------------- MultiTasking}
 MultiTask           : TFarProc;
-ProzFaktor      : single;
+PercentFactor      : single;
 var LastError : word;
 
 {----------------------------------------------	Color Constants}
@@ -96,7 +85,7 @@ function Histogramm: boolean;
 var
 p24 : PRGBByteArray;
 h               : integer;
-Proz            : integer;
+Percent         : integer;
 r, g, b         : byte;
 y, x            : integer;
 begin
@@ -105,11 +94,11 @@ begin
      fillchar(Freq[RedI],   sizeof(tFreqZeile), #0);
      fillchar(Freq[GreenI], sizeof(tFreqZeile), #0);
      fillchar(Freq[BlueI],  sizeof(tFreqZeile), #0);
-     ProzFaktor := 100 / DMCoSi.czHei;
-     for y := 0 to DMCoSi.czHei - 1
+     PercentFactor := 100 / pzBitmap.Height;
+     for y := 0 to pzBitmap.Height - 1
      do begin
-        p24 := DMCoSi.pqBMi.Scanline[y];
-        for x := 0 to DMCoSi.czWid - 1
+        p24 := pqBitmap.Scanline[y];
+        for x := 0 to pzBitmap.Width - 1
         do begin
            r := p24[x].Red SHR cBits;
            inc(Freq[RedI, r]);
@@ -124,8 +113,8 @@ begin
         end;
         if (MultiTask <> nil)
         then begin
-             Proz := round(y * ProzFaktor);
-             if TDitherProgress(MultiTask)(Proz)
+             Percent := round(y * PercentFactor);
+             if TDitherProgress(MultiTask)(Percent)
              then begin
                   LastError := ERR_CANCEL;
                   Result := false;
@@ -410,12 +399,12 @@ b, g, r         : integer;
 y, x            : integer;
 p               : integer;
 begin
-  ProzFaktor := 100 / DMCoSi.czHei;
-  for y := 0 to DMCoSi.czHei - 1
+  PercentFactor := 100 / pzBitmap.Height;
+  for y := 0 to pzBitmap.Height - 1
   do begin
-     p24 := DMCoSi.pqBMI.Scanline[y];
-     p8 := DMCoSi.pzBMI.Scanline[y];
-     for x := 0 to DMCoSi.czWid - 1
+     p24 := pqBitmap.Scanline[y];
+     p8 :=  pzBitmap.Scanline[y];
+     for x := 0 to pzBitmap.Width - 1
      do begin
         r := (p24[x].Red   AND $f8) SHL (Bits + Bits - cBits);
         g := (p24[x].Green AND $f8) SHL (Bits        - cBits);
@@ -426,7 +415,7 @@ begin
      {---------- MultiTasking}
      if (MultiTask <> nil)
      then begin
-          Proz := round(y * ProzFaktor);
+          Proz := round(y * PercentFactor);
           if TDitherProgress(MultiTask)(Proz)
           then begin
                Result := false;
@@ -472,80 +461,72 @@ begin
 end {procedure FreeHBRmem};
 
 function TrueColorTo256(pBMI: TBitmap) : tbitmap;
-const
-zColor         = 1 SHL 8;
-var
-Pal : TMaxLogPalette;
-PalEntry : TPaletteEntry;
-i               : integer;
-bErg            : boolean;
+const zColor = 1 SHL 8;
+var Pal      : TMaxLogPalette;
+    PalEntry : TPaletteEntry;
+    i        : integer;
+    bErg     : boolean;
 begin
-  LastError := 0;
-  fillchar(DMCoSi, sizeof(tDMCoSi), #0);
-  pHisto  := nil;
-  pBoxArr := nil;
-  pMap    := nil;
-  with DMCoSi
-  do begin
-     pqBMI := pBMI;
-     with pqBMI
-     do begin
-        if not (PixelFormat = pf24bit)
-        then begin
-             raise Exception.Create('Image is not 24 bit image');
-             exit;
-        end ;
-        czWid := Width;
-        czHei := Height;
-     end {with pqBMI^.bmiHeader};
-     pzbmi := TBitmap.Create;
-     pzbmi.PixelFormat := pf8bit;
-     pzbmi.width := czWid;
-     pzbmi.Height := czhei;
-     cHBRPix := czWid;
-     cHBRPix := cHBRPix * czHei;
-     cHBRCol := zColor;
-     if not(GetHBRmem)
-     then begin
-          FreeHBRmem;
-          raise exception.Create('Error on memory alloc!');
-          exit;
-     end {Abort};
-     if not(Histogramm)
-     then begin
-          FreeHBRmem;
-          raise exception.Create('Canceled!');
-          exit;
-     end {Abort};
-     cHBROutCol := CutBoxes;
-     pal.palVersion := $300;
-     pal.palNumEntries := cHBROutCol;
-     for i := 0 to cHBROutCol - 1
-     do with pBoxArr^[i]
-     do begin
-        Palentry.peRed := round(Mean[RedI])   SHL cBits;
-        Palentry.peGreen := round(Mean[GreenI]) SHL cBits;
-        Palentry.peBlue  := round(Mean[BlueI])  SHL cBits;
-        Palentry.peFlags := 0;
-        pal.PalPalEntry[i] := palentry;
-     end;
-     pzBMI.Palette := CreatePalette(PLogPalette(@Pal)^);
-     if not(MakeRGBmap)
-     then begin
-          FreeHBRmem;
-          raise exception.Create('Canceled!');
-          exit;
-     end {Abort};
-     bErg := ChangeTheColors;
-     FreeHBRmem;
-     if not(bErg)
-     then begin
-          raise exception.Create('Canceled!');
-          exit;
-     end {Abort};
-  end {with DMCoSi};
-  Result := DMCoSi.pzBMI;
-  // !! Maybe I need to free something ??
+   LastError := 0;
+   pHisto  := nil;
+   pBoxArr := nil;
+   pMap    := nil;
+   pqBitmap := pBMI;
+   with pqBitmap
+   do begin
+      if not (PixelFormat = pf24bit)
+      then begin
+           raise Exception.Create('Image is not 24 bit image');
+           exit;
+      end ;
+   end {with pqBMI^.bmiHeader};
+   pzBitmap := TBitmap.Create;
+   pzBitmap.PixelFormat := pf8bit;
+   pzBitmap.Width := pqBitmap.Width;
+   pzBitmap.Height := pqBitmap.Height;
+   cHBRPix := pqBitmap.Width;
+   cHBRPix := cHBRPix * pqBitmap.Height;
+   cHBRCol := zColor;
+   if not(GetHBRmem)
+   then begin
+        FreeHBRmem;
+        raise exception.Create('Error on memory alloc!');
+        exit;
+   end {Abort};
+   if not(Histogramm)
+   then begin
+        FreeHBRmem;
+        raise exception.Create('Canceled!');
+        exit;
+   end {Abort};
+   cHBROutCol := CutBoxes;
+   pal.palVersion := $300;
+   pal.palNumEntries := cHBROutCol;
+   for i := 0 to cHBROutCol - 1
+   do with pBoxArr^[i]
+   do begin
+      Palentry.peRed := round(Mean[RedI])   SHL cBits;
+      Palentry.peGreen := round(Mean[GreenI]) SHL cBits;
+      Palentry.peBlue  := round(Mean[BlueI])  SHL cBits;
+      Palentry.peFlags := 0;
+      pal.PalPalEntry[i] := palentry;
+   end;
+   pzBitmap.Palette := CreatePalette(PLogPalette(@Pal)^);
+   if not(MakeRGBmap)
+   then begin
+        FreeHBRmem;
+        raise exception.Create('Canceled!');
+        exit;
+   end {Abort};
+   bErg := ChangeTheColors;
+   FreeHBRmem;
+   if not(bErg)
+   then begin
+        raise exception.Create('Canceled!');
+        exit;
+   end {Abort};
+   Result := pzBitmap;
+// !! Maybe I need to free something ??
 end {function TrueColorTo256};
 
 procedure DitherSetTheCallBack(CallBack: tFarProc);

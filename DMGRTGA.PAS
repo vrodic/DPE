@@ -44,12 +44,13 @@ function GetHeader(TGAHeader: pTGAHeader): boolean;
 var i: integer;
     PixelSize: byte;
     InterlaceType: byte;
+    rRead : longint; // number of bytes actually transfered to buffer (Stream.Read)
 begin
   Result := false;
   with DMGS
   do begin
-     rGelesen := Stream.Read(TGAHeader^, sizeof(tTGAHeader));
-     if (rGelesen <> sizeof(tTGAHeader))
+     rRead := Stream.Read(TGAHeader^, sizeof(tTGAHeader));
+     if (rRead <> sizeof(tTGAHeader))
      then begin
           mg_LastError := MGERR_READERROR;
           rError := true;

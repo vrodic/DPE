@@ -20,19 +20,18 @@ begin
 end {procedure mg_SetTheCallBack};
 {----------------------------------------------	mg_LoadThePicture}
 function mg_LoadThePicture(t : byte; var FStream : TMemoryStream): pBitmapInfo;
-var
-bErg            : boolean;
+var ReadOK            : boolean;
 begin
   {------------	DMGS initialising}
   FillChar(DMGS, sizeof(tDMGS), #0);
   mg_LastError  := 0;
-  bErg := False;
-  if not GetPictureStream(FStream) then raise Exception.Create('Error on Load!');
+  ReadOK := False;
+  if not GetPictureStream(FStream) then raise Exception.Create(LOADERRSTR);
   case t of
-          1:  bErg := LoadTheTGA;
-          2:  bErg := LoadThePCX;
+          1:  ReadOK := LoadTheTGA;
+          2:  ReadOK := LoadThePCX;
        end {case FormatTyp};
-       if bErg then Result := DMGS.pBMI else Result := nil;
+       if ReadOK then Result := DMGS.pBMI else Result := nil;
 end {function mg_LoadThePicture};
 {----------------------------------------------	mg_FreeTheDIB}
 procedure mg_FreeTheDIB(pBMI: pBitmapInfo);

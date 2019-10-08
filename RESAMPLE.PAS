@@ -3,9 +3,9 @@ unit resample;
 // Project:	bitmap resampler
 // Module:	resample
 // Description: Interpolated Bitmap Resampling using filters.
-// Version:	01.01
-// Release:	1
-// Date:	11-JAN-1998
+// Version:	01.02
+// Release:	3
+// Date:	15-MAR-1998
 // Target:	Win32, Delphi 2 & 3
 // Author(s):	anme: Anders Melander, anders@melander.dk
 // Copyright	(c) 1997,98 by Anders Melander
@@ -52,11 +52,19 @@ unit resample;
 //			- Added support for Delphi 2 via TCanvas.Pixels.
 //			- Renamed module from stretch to resample.
 //			- Moved demo code to separate module.
+//
+// 0102 150398	anme	- Fixed a problem that caused all pixels to be shifted
+//			  1/2 pixel down and to the right (in source
+//			  coordinates). Thanks to David Ullrich for the
+//			  solution.
 // -----------------------------------------------------------------------------
 // Credits:
 // The algorithms and methods used in this library are based on the article
 // "General Filtered Image Rescaling" by Dale Schumacher which appeared in the
 // book Graphics Gems III, published by Academic Press, Inc.
+//
+// The edge offset problem was fixed by:
+//   * David Ullrich <ullrich@hardy.math.okstate.edu>
 // -----------------------------------------------------------------------------
 // To do (in rough order of priority):
 // * Implement Dale Schumacher's "Optimized Bitmap Scaling Routines".
@@ -105,23 +113,23 @@ type
 
 const
   ResampleFilters: array[0..6] of record
-    Name: string;
-    Filter: TFilterProc;
-    Width: Single;
+    Name: string;	// Filter name
+    Filter: TFilterProc;// Filter implementation
+    Width: Single;	// Suggested sampling width/radius
   end = (
-    (Name: 'Box'; Filter: BoxFilter; Width: 0.5),
-    (Name: 'Triangle'; Filter: TriangleFilter; Width: 1.0),
-    (Name: 'Hermite'; Filter: HermiteFilter; Width: 1.0),
-    (Name: 'Bell'; Filter: BellFilter; Width: 1.5),
-    (Name: 'B-Spline'; Filter: SplineFilter; Width: 2.0),
-    (Name: 'Lanczos3'; Filter: Lanczos3Filter; Width: 3.0),
-    (Name: 'Mitchell'; Filter: MitchellFilter; Width: 2.0)
+    (Name: 'Box';	Filter: BoxFilter;	Width: 0.5),
+    (Name: 'Triangle';	Filter: TriangleFilter;	Width: 1.0),
+    (Name: 'Hermite';	Filter: HermiteFilter;	Width: 1.0),
+    (Name: 'Bell';	Filter: BellFilter;	Width: 1.5),
+    (Name: 'B-Spline';	Filter: SplineFilter;	Width: 2.0),
+    (Name: 'Lanczos3';	Filter: Lanczos3Filter;	Width: 3.0),
+    (Name: 'Mitchell';	Filter: MitchellFilter;	Width: 2.0)
     );
 
 implementation
 
 uses
-  math,dpemform;
+  math, dpemform;
 
 // -----------------------------------------------------------------------------
 //
@@ -326,15 +334,26 @@ begin
   DstWidth := Dst.Width;
   DstHeight := Dst.Height;
   SrcWidth := Src.Width;
-
   SrcHeight := Src.Height;
+  if (SrcWidth < 1) or (SrcHeight < 1) then
+    raise Exception.Create('Source bitmap too small');
+
   // Create intermediate image to hold horizontal zoom
   Work := TBitmap.Create;
   try
     Work.Height := SrcHeight;
     Work.Width := DstWidth;
-    xscale := DstWidth / SrcWidth;
-    yscale := DstHeight / SrcHeight;
+    // xscale := DstWidth / SrcWidth;
+    // yscale := DstHeight / SrcHeight;
+    // Improvement suggested by David Ullrich:
+    if (SrcWidth = 1) then
+      xscale:= DstWidth / SrcWidth
+    else
+      xscale:= (DstWidth - 1) / (SrcWidth - 1);
+    if (SrcHeight = 1) then
+      yscale:= DstHeight / SrcHeight
+    else
+      yscale:= (DstHeight - 1) / (SrcHeight - 1);
     // This implementation only works on 24-bit images because it uses
     // TBitmap.Scanline
 {$IFDEF USE_SCANLINE}
@@ -358,9 +377,9 @@ begin
         contrib^[i].n := 0;
         GetMem(contrib^[i].p, trunc(width * 2.0 + 1) * sizeof(TContributor));
         center := i / xscale;
-// Original code:
-//        left := ceil(center - width);
-//        right := floor(center + width);
+        // Original code:
+        // left := ceil(center - width);
+        // right := floor(center + width);
         left := floor(center - width);
         right := ceil(center + width);
         for j := left to right do
@@ -389,9 +408,9 @@ begin
         contrib^[i].n := 0;
         GetMem(contrib^[i].p, trunc(fwidth * 2.0 + 1) * sizeof(TContributor));
         center := i / xscale;
-// Original code:
-//        left := ceil(center - fwidth);
-//        right := floor(center + fwidth);
+        // Original code:
+        // left := ceil(center - fwidth);
+        // right := floor(center + fwidth);
         left := floor(center - fwidth);
         right := ceil(center + fwidth);
         for j := left to right do
@@ -492,9 +511,9 @@ begin
         contrib^[i].n := 0;
         GetMem(contrib^[i].p, trunc(width * 2.0 + 1) * sizeof(TContributor));
         center := i / yscale;
-// Original code:
-//        left := ceil(center - width);
-//        right := floor(center + width);
+        // Original code:
+        // left := ceil(center - width);
+        // right := floor(center + width);
         left := floor(center - width);
         right := ceil(center + width);
         for j := left to right do
@@ -523,9 +542,9 @@ begin
         contrib^[i].n := 0;
         GetMem(contrib^[i].p, trunc(fwidth * 2.0 + 1) * sizeof(TContributor));
         center := i / yscale;
-// Original code:
-//        left := ceil(center - fwidth);
-//        right := floor(center + fwidth);
+        // Original code:
+        // left := ceil(center - fwidth);
+        // right := floor(center + fwidth);
         left := floor(center - fwidth);
         right := ceil(center + fwidth);
         for j := left to right do

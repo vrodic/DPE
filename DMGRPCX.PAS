@@ -39,12 +39,13 @@ var Palette16: tLogPalette;
     DC: hDC;
     i: integer;
     PaletteKennung: byte;
+    rRead : longint; // number of bytes actually transfered to buffer (Stream.Read)
 begin
   with DMGS
   do begin
      Result := false;
-     rGelesen := Stream.Read(PCXHeader^, sizeof(tPCXHeader));
-     if (rGelesen <> sizeof(tPCXHeader))
+     rRead := Stream.Read(PCXHeader^, sizeof(tPCXHeader));
+     if (rRead <> sizeof(tPCXHeader))
      then begin
           mg_LastError := MGERR_READERROR;
           exit;
@@ -72,8 +73,8 @@ begin
      else if (BPP = 8)
      then begin
           Stream.Seek(-(sizeof(tRawPalette) + 1), 2);
-          rGelesen := Stream.Read(PaletteKennung, sizeof(PaletteKennung));
-          if (rGelesen <> sizeof(PaletteKennung))
+          rRead := Stream.Read(PaletteKennung, sizeof(PaletteKennung));
+          if (rRead <> sizeof(PaletteKennung))
           then begin
                mg_LastError := MGERR_READERROR;
                rError := true;
@@ -84,8 +85,8 @@ begin
                mg_LastError := MGERR_WRONGFORM;
                exit;
           end {bad Pallete};
-          rGelesen := Stream.Read(Palette, sizeof(tRawPalette));
-          if (rGelesen <> sizeof(tRawPalette))
+          rRead := Stream.Read(Palette, sizeof(tRawPalette));
+          if (rRead <> sizeof(tRawPalette))
           then begin
                mg_LastError := MGERR_READERROR;
                rError := true;
@@ -170,7 +171,7 @@ var
 pDIBv, pPCXv    : ^byte;
 p1, p2, p3, p4  : pByteArray;
 DIBoff          : longint;
-PCXBPL          : longint;
+PCXBPL          : longint;  // bits per line
 cqPix, czPix    : word;
 cHei, cWid      : word;
 x, y            : integer;
@@ -283,13 +284,13 @@ var pR, pG, pB: pChar;
     DIBoff: longint;
     x, y: word;
     cHei, cWid: word;
-    PCXZeile: longint;
+    PCXRow: longint;
     Percent: longint;
 begin
   with DMGS
   do begin
      wOffset  := 0;
-     PCXZeile := wlineLength * 3;
+     PCXRow := wlineLength * 3;
      DIBoff   := cDIB + cBMI;
      cHei     := pBMI^.bmiHeader.biHeight;
      cWid     := pBMI^.bmiHeader.biWidth - 1;
@@ -300,8 +301,8 @@ begin
      for y := 1 to cHei
      do begin
         pPCXv := pWrite + wOffset;
-        Move(pPCXv^, pWriteBuf^, PCXZeile);
-        inc(wOffset, PCXZeile);
+        Move(pPCXv^, pWriteBuf^, PCXRow);
+        inc(wOffset, PCXRow);
         for x := 0 to cWid
         do begin
            pBGRArr(pReadBuf)^[x, Bc]  := byte(pB[x]);
@@ -313,8 +314,8 @@ begin
         Move(pReadBuf^, pDIBv^, cDIBline);
         if (MulTa <> nil)
         then begin
-             Percent   := round(y * PercentFactor);
-             bAbort := TMultiTasking(MulTa)(Percent);
+             Percent := round(y * PercentFactor);
+             bAbort  := TMultiTasking(MulTa)(Percent);
              if bAbort then exit;
         end {MultiTasking};
      end;
