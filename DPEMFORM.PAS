@@ -199,7 +199,6 @@ type
     procedure MNUCascadeClick(Sender: TObject);
     procedure NewMNUClick(Sender: TObject);
     procedure MNUECClick(Sender: TObject);
-    procedure Hide1Click(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure FLPasteClick(Sender: TObject);
     procedure MNUPANIClick(Sender: TObject);
@@ -853,11 +852,6 @@ LoadFinalize(tmp,FileName);
 CheckTool(MDIChildCount);
 end;
 
-procedure TDPEMain.Hide1Click(Sender: TObject);
-begin
-tft := TFPhoto(ActiveMDIChild);
-tft.Close;
-end;
 procedure TDPEMain.CheckTool(Count : Integer);
 begin
 tft := TFPhoto(ActiveMDIChild);
@@ -1190,12 +1184,15 @@ var filename : string;
     pic : TPicture;
 begin
 if MDIChildCount = 0 then exit;
+if MessageDlg('Lose all changes since your last save?',
+   mtConfirmation, [mbYes, mbNo], 0) = idNo then exit;
 tft := TFPhoto(ActiveMDIChild);
 filename := tft.PhotoName;
 pic := TPicture.Create;
-if not LoadToPicture(pic,FileName) then Exit;
+if not LoadToPicture(pic,FileName) then exit;
 tft.Photo.Picture.Assign(pic);
 LoadFinalize(pic,FileName);
+tft.Modified := False;
 end;
 
 procedure TDPEMain.MNUPrintClick(Sender: TObject);
