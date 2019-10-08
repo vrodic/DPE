@@ -1752,7 +1752,11 @@ var
    x,y:integer;
 begin
    GetObject(Bitmap.handle,sizeof(bmp),@bmp);
-   if bmp.bmBitsPixel<> 24 then exit;
+   if bmp.bmBitsPixel<> 24 then
+   begin
+       Result := -1; // indicating that a func was a filiure
+       exit;
+   end;
    q:=1;
    mt:=0;
    w:=bmp.bmWidth*3-1;

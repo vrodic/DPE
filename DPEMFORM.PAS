@@ -1497,7 +1497,9 @@ begin
 if PalOpenDialog.Execute then
 begin
      tft := TFPhoto(ActiveMDIChild);
+     tft.SaveUndo;
      tft.LoadPalette(PalOpenDialog.FileName);
+     tft.Modified := True;
 end;
 end;
 
@@ -2248,7 +2250,7 @@ end;
 procedure TDPEMain.MNUFSEClick(Sender: TObject);
 var tmp : integer;
 begin
-if MNUFSE.Checked then
+{if MNUFSE.Checked then
 begin
   Top := oldpos.Top;
   Left := oldPos.Left;
@@ -2266,11 +2268,33 @@ begin
   oldpos.Right := Width;
   windowstate := wsNormal;
   BorderStyle := bsNone;
-  tmp := {(GetSystemMetrics(SM_CYEDGE)*2)+  GetSystemMetrics(SM_CYCAPTION)+} GetSystemMetrics(SM_CYMENU)-2;
-  Top := - tmp;
+  tmp := GetSystemMetrics(SM_CYMENU)-2;
+  {Top := - tmp;
   Left := 0;
   Height := Screen.Height  +tmp+Statusbar.Height;
   Width := Screen.Width;
+end;}
+if MNUFSE.Checked then
+begin
+  Top := oldpos.Top;
+  Left := oldPos.Left;
+  Width := oldpos.Right;
+  Height := oldpos.Bottom;
+  WindowState := oldState;
+end
+else
+begin
+  oldstate := WindowState;
+  oldpos.Top := Top;
+  oldpos.Left := Left;
+  oldpos.Bottom := Height;
+  oldpos.Right := Width;
+  windowstate := wsNormal;
+  tmp := (GetSystemMetrics(SM_CYEDGE)*2)+  GetSystemMetrics(SM_CYCAPTION)+ GetSystemMetrics(SM_CYMENU)-2;
+  Top := - tmp;
+  Left := -GetSystemMetrics(SM_CXEDGE)*2;
+  Height := Screen.Height + tmp;
+  Width := Screen.Width + (GetSystemMetrics(SM_CXEDGE)*4);
 end;
  mnufse.Checked := not MNUFSe.Checked;
  StupidDO;

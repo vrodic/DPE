@@ -92,15 +92,15 @@ var pal : TMAxLogPalette;
 begin
 pal.palVersion := $300;
 pal.palNumEntries := Colors;
-t := PaletteEdit.GetColor(0);
+{t := PaletteEdit.GetColor(0);
 // I dont know what bug is this, but first palette
 // entry is in BGR order, so this workaround is
 // applied
 Pal.Palpalentry[0].peBlue := GetRvalue(ColorToRGB(t));
 Pal.Palpalentry[0].peGreen := GetGvalue(ColorToRGB(t));
 Pal.Palpalentry[0].peRed := GetBvalue(ColorToRGB(t));
-Pal.Palpalentry[0].peFlags := 0;
-for i := 1 to Colors-1 do
+Pal.Palpalentry[0].peFlags := 0;}
+for i := 0 to Colors-1 do
 begin
      t := PaletteEdit.GetColor(i);
      Pal.Palpalentry[i].peBlue := GetBvalue(ColorToRGB(t));
@@ -109,7 +109,9 @@ begin
      Pal.Palpalentry[i].peFlags := 0;
 end;
 hpal := CreatePalette(PLogPalette(@Pal)^);
+tft.SaveUndo;
 tft.ApplyPalette(hpal);
+tft.Modified := True;
 end;
 
 procedure Tepfrm.RevertBTNClick(Sender: TObject);

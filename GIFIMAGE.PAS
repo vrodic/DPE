@@ -4481,7 +4481,7 @@ begin
               step := step DIV 2;
             Inc(pass);
             ypos := step DIV 2;
-          until (ypos <= height);
+          until (ypos < height);
       end;
     end else
     begin
