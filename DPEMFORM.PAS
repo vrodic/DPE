@@ -110,7 +110,7 @@ type
     ColorDialog: TColorDialog;
     MNUColorise: TMenuItem;
     N10: TMenuItem;
-    Preferences1: TMenuItem;
+    MNUPrefSUB: TMenuItem;
     mnuFFP: TMenuItem;
     MNUResize: TMenuItem;
     N11: TMenuItem;
@@ -175,8 +175,11 @@ type
     MNUAContrast: TMenuItem;
     MNUResample: TMenuItem;
     MNUSharpen: TMenuItem;
-    Channels1: TMenuItem;
+    MNUChannels: TMenuItem;
     MNUCombining: TMenuItem;
+    ZoomSO: TPanel;
+    ZmCap: TLabel;
+    MNUFSE: TMenuItem;
     procedure CheckTool(Count : Integer);
     procedure ShowHint(Sender : TObject);
     procedure LoadPhoto( FileName : string);
@@ -348,6 +351,7 @@ type
     procedure MNUResampleClick(Sender: TObject);
     procedure MNUSharpenClick(Sender: TObject);
     procedure MNUCombiningClick(Sender: TObject);
+    procedure MNUFSEClick(Sender: TObject);
   private
      FNextViewerHandle : THandle;
      procedure SysMenuHint(var Message : TWMMenuSelect); message WM_MenuSelect;
@@ -386,8 +390,12 @@ uses photo, newimg,DMGMain,rotun,
   FS_UN, adclrun, ldun, solaun, abox,ffpun,rszun,epun,
   crszun,ablendun,mfimp,btnzun,adbrdrun,prun,conun,ccun;
 {$R *.DFM}
-var tft : TFPhoto;
 
+var tft : TFPhoto; // Active MDI Child
+    // for full screen edit
+    oldpos : TRect;
+    oldstate : TWindowState;
+    ///////////////////////
 procedure TDPEMain.EvPrg(Sender :TObject; Stage : TProgressStage; PercentDone: Byte; RedrawNow: Boolean; const R: TRect; const Msg: string);
 begin
 ProgressBar.Position := PercentDone;
@@ -665,6 +673,8 @@ StupidDO;
 {}
 PBT.Down := True;
 SizeUD.Position := SizePen;
+SizeSO.Visible := True;
+ZoomSO.Visible := False;
 SizeED.Text := IntTostr(SizeUD.Position);
 StrUD.Position := StrVal;
 StrED.Text := IntToStr(StrUD.Position);
@@ -729,10 +739,10 @@ if BackColor <> 2 then bitmap.Canvas.FillRect(Rect(0,0,bitmap.Width, bitmap.Heig
 Inc(ImageCount);
 TFPhoto.Create(Self);
 tft := TFPhoto(ActiveMDIChild);
-tft.FitImage(x,y);
 tft.Caption:= photo.DefName + IntToStr(ImageCount);
 LoadedFile := tft.Caption;
 tft.Photo.Picture.Graphic := bitmap;
+tft.FitImage(x,y);
 bitmap.Free;
 Screen.Cursor := crDefault;
 tft.Photo.Hint := 'New created image';
@@ -841,6 +851,22 @@ begin
  MNUUndo.Visible := False;
  FLUndo.Enabled := False;
  N13.Visible := False;
+ // Image tools
+ PBT.Enabled := False;
+ LineT.Enabled := False;
+ FFT.Enabled := False;
+ ShapeT.Enabled := False;
+ DropT.Enabled := False;
+ RetT.Enabled := False;
+ MoverT.Enabled := False;
+ EraserT.Enabled := False;
+ SizeUD.Enabled := False;
+ SizeED.Enabled := False;
+ StyleBox.Enabled := False;
+ ShapeBox.Enabled := False;
+ StrED.Enabled := False;
+ StrUD.Enabled := False;
+ RModeBox.Enabled := False;
 end
 else
 begin
@@ -872,6 +898,22 @@ begin
  MNUReload.Visible := True;
  MNUUndo.Visible := True;
  N13.Visible := True;
+ // Image tools
+ PBT.Enabled := True;
+ LineT.Enabled := True;
+ FFT.Enabled := True;
+ ShapeT.Enabled := True;
+ DropT.Enabled := True;
+ RetT.Enabled := True;
+ MoverT.Enabled := True;
+ EraserT.Enabled := True;
+ SizeUD.Enabled := True;
+ SizeED.Enabled := True;
+ StyleBox.Enabled := True;
+ ShapeBox.Enabled := True;
+ StrED.Enabled := True;
+ StrUD.Enabled := True;
+ RModeBox.Enabled := True;
 end;
 end;
 
@@ -928,6 +970,7 @@ end;
 
 procedure TDPEMain.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
+if MNUFSE.Checked then MNUFSEClick(self);
 RecentFiles.SaveToIniFile;
 RegSaveToolBarPositions(DPEMain,DPEIniName+ '\Toolbars');
 RegIniFile := TRegIniFile.Create(DPEIniName);
@@ -1158,6 +1201,7 @@ tft := TFPhoto(ActiveMDIChild);
 basebitmap := TBitmap.Create;
 basebitmap.Assign(tft.Photo.Picture.bitmap);
 basebitmap.PixelFormat := pf24bit;
+/// red rippof
 processedbitmap := TBitmap.Create;
 processedBitmap.PixelFormat := pf8bit;
 processedBitmap.Height := basebitmap.Height;
@@ -1179,6 +1223,7 @@ tft := TFPhoto(ActiveMDIChild);
 tft.FitImage(basebitmap.Width,basebitmap.Height);
 tft.Caption := 'Red' + Inttostr(n);
 tft.Photo.Picture.Bitmap.Assign(processedbitmap);
+// green ripoff
 processedBitmap.Free;
 processedbitmap := TBitmap.Create;
 processedBitmap.PixelFormat := pf8bit;
@@ -1200,6 +1245,7 @@ tft := TFPhoto(ActiveMDIChild);
 tft.FitImage(basebitmap.Width,basebitmap.Height);
 tft.Caption := 'Green' + Inttostr(n);
 tft.Photo.Picture.Bitmap.Assign(processedbitmap);
+// blue ripoff
 processedBitmap.Free;
 processedbitmap := TBitmap.Create;
 processedBitmap.PixelFormat := pf8bit;
@@ -1778,21 +1824,25 @@ end;
 
 procedure TDPEMain.PBTClick(Sender: TObject);
 begin
+ZoomSO.Visible := False;
 SizeSO.Visible := True;
 RectSO.Visible := False;
 RetSO.Visible := False;
 SizeCap.Caption := 'Size';
 SizeUD.Position := SizePen;
+SizeED.Hint := 'Size';
 SizeED.Text := IntTostr(SizeUD.Position);
 Tag := 2;
 end;
 
 procedure TDPEMain.linetClick(Sender: TObject);
 begin
+ZoomSO.Visible := False;
 RectSO.Visible := False;
 SizeSO.Visible := True;
 RetSo.Visible := False;
 SizeCap.Caption := 'Width';
+SizeED.Hint := 'Width';
 SizeUD.Position := SizeLine;
 SizeED.Text := IntTostr(SizeUD.Position);
 Tag := 3;
@@ -1800,11 +1850,13 @@ end;
 
 procedure TDPEMain.shapetClick(Sender: TObject);
 begin
+ZoomSO.Visible := False;
 RectSO.Visible := True;
 RetSo.Visible := False;
 SizeSO.Visible := True;
 SizeCap.Caption := 'Line';
 SizeUD.Position := SizeBox;
+SizeED.Hint := 'Outline Width';
 SizeED.Text := IntTostr(SizeUD.Position);
 Tag := 4;
 end;
@@ -1857,6 +1909,11 @@ end;
 
 procedure TDPEMain.fftClick(Sender: TObject);
 begin
+ZoomSO.Visible := False;
+SizeSO.Visible := False;
+RectSO.Visible := False;
+RetSO.Visible := False;
+ZoomSO.Visible := True;
 Tag := 5;
 end;
 
@@ -1892,17 +1949,24 @@ end;
 
 procedure TDPEMain.DropTClick(Sender: TObject);
 begin
+ZoomSO.Visible := False;
+SizeSO.Visible := False;
+RectSO.Visible := False;
+RetSO.Visible := False;
+ZoomSO.Visible := True;
 Tag := 6;
 end;
 
 procedure TDPEMain.RetTClick(Sender: TObject);
 begin
+ZoomSO.Visible := False;
 RectSO.Visible := False;
 RetSo.Visible := True;
 SizeSO.Visible := True;
 SizeUD.Position := SizeRet;
 SizeED.Text := IntTostr(SizeUD.Position);
 StrUD.Position := StrVal;
+SizeED.Hint := 'Size';
 StrEd.Text := IntToStr(StrUD.Position);
 SizeCap.Caption := 'Size';
 Tag := 7;
@@ -1974,6 +2038,11 @@ end;
 
 procedure TDPEMain.MoverTClick(Sender: TObject);
 begin
+ZoomSO.Visible := False;
+SizeSO.Visible := False;
+RectSO.Visible := False;
+RetSO.Visible := False;
+ZoomSO.Visible := True;
 Tag := 8;
 end;
 
@@ -1985,11 +2054,13 @@ end;
 
 procedure TDPEMain.EraserTClick(Sender: TObject);
 begin
+ZoomSO.Visible := False;
 SizeSO.Visible := True;
 RectSO.Visible := False;
 RetSO.Visible := False;
 SizeCap.Caption := 'Size';
 SizeUD.Position := SizeEraser;
+SizeED.Hint := 'Size';
 SizeED.Text := IntTostr(SizeUD.Position);
 Tag := 9;
 end;
@@ -2109,6 +2180,37 @@ begin
      gb.Free;
      bb.Free;
 end;
+end;
+
+procedure TDPEMain.MNUFSEClick(Sender: TObject);
+var tmp : integer;
+begin
+if MNUFSE.Checked then
+begin
+  Top := oldpos.Top;
+  Left := oldPos.Left;
+  Width := oldpos.Right;
+  Height := oldpos.Bottom;
+  WindowState := oldState;
+  BorderStyle := bsSizeable;
+end
+else
+begin
+  oldstate := WindowState;
+  oldpos.Top := Top;
+  oldpos.Left := Left;
+  oldpos.Bottom := Height;
+  oldpos.Right := Width;
+  windowstate := wsNormal;
+  BorderStyle := bsNone;
+  tmp := {(GetSystemMetrics(SM_CYEDGE)*2)+  GetSystemMetrics(SM_CYCAPTION)+} GetSystemMetrics(SM_CYMENU)-2;
+  Top := - tmp;
+  Left := 0;
+  Height := Screen.Height  +tmp+Statusbar.Height;
+  Width := Screen.Width;
+end;
+ mnufse.Checked := not MNUFSe.Checked;
+ StupidDO;
 end;
 
 end.

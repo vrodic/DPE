@@ -1410,25 +1410,34 @@ begin
 if WindowState = wsNormal then
 begin
   tmp := DPEMain.ClientRect;
-  AutoScroll := False;
+  //AutoScroll := False;
   bx := False;
   by := False;
-  if x < tmp.Right then
+  if x - Left < tmp.Right then
   begin
-       Width := x+9;
+       Width := x+(GetSystemMetrics(SM_CXFRAME)*2);
        bx := True;
-  end else Width := tmp.Right-4;
-  if y < tmp.Bottom then
+  end else
   begin
-       Height := y+27;
+       Width := (tmp.Right-(GetSystemMetrics(SM_CXFRAME)*2))- Left;
+  end;
+  if y - Top< tmp.Bottom then
+  begin
+       Height := y+GetSystemMetrics(SM_CYCAPTION) + (GetSystemMetrics(SM_CYFRAME) *2);
        by := True;
-  end else Height := tmp.Bottom-52;
-  if bx and (not by) then Width := Width +GetSystemMetrics(SM_CXHSCROLL)-1;
-  if by and (not bx) then Height := Height + GetSystemMetrics(SM_CYHSCROLL);
-  AutoScroll := True;
+  end else
+  begin
+       Top := 0;
+       Height := (tmp.Bottom-50) - Top;
+  end;
+  if bx and (not by) then Width := Width +GetSystemMetrics(SM_CYHSCROLL);
+  if by and (not bx) then Height := Height + GetSystemMetrics(SM_CXVSCROLL);
+  //AutoScroll := True;
 end;
 end;
+
 var JustCreated : Boolean;
+
 procedure TFPhoto.FormCreate(Sender: TObject);
 begin
 Resized := False;
