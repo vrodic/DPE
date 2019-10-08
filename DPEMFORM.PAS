@@ -398,28 +398,26 @@ var tft : TFPhoto; // Active MDI Child
     oldpos : TRect;
     oldstate : TWindowState;
     ///////////////////////
+
 procedure TDPEMain.EvPrg(Sender :TObject; Stage : TProgressStage; PercentDone: Byte; RedrawNow: Boolean; const R: TRect; const Msg: string);
 begin
-ProgressBar.Position := PercentDone;
+  ProgressBar.Position := PercentDone;
 end;
 
 procedure TDPEMain.LoadJPG(FileName : String; FPicture : TPicture);
 var JPEGImage : TJPEGImage;
 begin
-ProgressBar.Visible := True;
-JPEGImage := TJPEGImage.Create;
-JPEGImage.GrayScale := JGreyScale;
-JPEGImage.OnProgress := EvPrg;
-try
-   JPEGImage.LoadFromFile(FileName);
-except
-   ProgressBar.Visible := False;
-   Screen.Cursor := crDefault;
-end;
-FPicture.Bitmap.Assign(JPEGImage);
-ProgressBar.Visible := False;
-Screen.Cursor := crDefault;
-JPEGImage.Free;
+  JPEGImage := TJPEGImage.Create;
+  JPEGImage.GrayScale := JGreyScale;
+  JPEGImage.OnProgress := EvPrg;
+  try
+    JPEGImage.LoadFromFile(FileName);
+    FPicture.Bitmap.Assign(JPEGImage);
+  finally
+    JPEGImage.Free;
+    ProgressBar.Visible := False;
+    Screen.Cursor := crDefault;
+  end;
 end;
 
 procedure TDPEMain.LoadGIF(FileName : String; FPicture : TPicture);
@@ -432,21 +430,26 @@ begin
     FPicture.Bitmap.Assign(GIFImage);
   finally
     GIFImage.Free;
+    ProgressBar.Visible := False;
+    Screen.Cursor := crDefault;
   end;
-  Screen.Cursor := crDefault;
 end;
 
 procedure TDPEMain.LoadICO(FileName : String; FPicture : TPicture);
 var ICOPicture : TPicture;
 begin
-     ICOPicture := TPicture.Create;
-     ICOPicture.LoadFromFile(FileName);
-     FPicture.Bitmap.PixelFormat := pf24bit;
-     FPicture.Bitmap.Width := ICOPicture.Width;
-     FPicture.Bitmap.Height := ICOPicture.Height;
-     FPicture.Bitmap.Canvas.Draw(0,0,ICOPicture.Graphic);
-     ICOPicture.Free;
-     Screen.Cursor := crDefault;
+  ICOPicture := TPicture.Create;
+  try
+    ICOPicture.LoadFromFile(FileName);
+    FPicture.Bitmap.PixelFormat := pf24bit;
+    FPicture.Bitmap.Width := ICOPicture.Width;
+    FPicture.Bitmap.Height := ICOPicture.Height;
+    FPicture.Bitmap.Canvas.Draw(0,0,ICOPicture.Graphic);
+  finally
+    ICOPicture.Free;
+    ProgressBar.Visible := False;
+    Screen.Cursor := crDefault;
+  end;
 end;
 
 function GraphicCallBack(cProgress: longint): bool;
@@ -696,12 +699,14 @@ StrUD.Position := StrVal;
 StrED.Text := IntToStr(StrUD.Position);
 Tag := 2;
 end;
-procedure TDpeMain.StupidDo;
+
+procedure TDPEMain.StupidDo;
 begin
   shapebox.ItemIndex := ShapeIDX;
   stylebox.ItemIndex := StyleIDX;
   RModeBox.ItemIndex := RetIDX;
 end;
+
 procedure TDPEMain.ShowHint(Sender : TObject);
 begin
 StatusBar.Panels[0].Text := Application.Hint;
@@ -785,71 +790,67 @@ end;
 
 function TDPEMain.LoadToPicture(var Picture : TPicture; FileName : String) : boolean;
 begin
-Result := False;
-if not FileExists(FileName) then Raise Exception.Create('Cannot open file ' + FileName);
-FileExt := ANSILowerCase(ExtractFileExt(FileName));
-Screen.Cursor := crHourGlass;
-ProgressBar.Position := 0;
-ProgressBar.Visible := True;
-if (FileExt = '.bmp') or (FileExt = '.tif') or (FileExt = '.tga') or (FileExt = '.pcx') then
-begin
+  Result := False;
+  if not FileExists(FileName) then Raise Exception.Create('Cannot open file ' + FileName);
+  FileExt := ANSILowerCase(ExtractFileExt(FileName));
+  Screen.Cursor := crHourGlass;
+  ProgressBar.Position := 0;
+  ProgressBar.Visible := True;
+  if (FileExt = '.bmp') or (FileExt = '.tif') or (FileExt = '.tga') or (FileExt = '.pcx') then
+  begin
      try
         Picture.LoadFromFile(FileName);
      finally
-            Screen.Cursor := crDefault;
-            ProgressBar.Visible := False;
+        ProgressBar.Visible := False;
+        Screen.Cursor := crDefault;
      end;
-end
-else if (FileExt = '.jpg') or (FileExt = '.jpe') then LoadJPG(FileName, Picture)
-else if (FileExt = '.gif') then LoadGIF(FileName, Picture)
-else if (FileExt = '.wmf') or (FileExt = '.emf') then MFImp.ShowWMFImp(FileName,Picture)
-else if (FileExt = '.ico') then LoadICO(FileName,Picture)
-else
-begin
-     Picture.Free;
-     ProgressBar.Visible := False;
-     Screen.Cursor := crDefault;
-     Application.MessageBox('The file type of this file is unknown.',Pchar(Application.Title),MB_ICONINFORMATION);
-     Exit;
-end;
-LoadedFile := FileName;
-Result := True;
+  end
+  else if (FileExt = '.jpg') or (FileExt = '.jpe') then LoadJPG(FileName, Picture)
+  else if (FileExt = '.gif') then LoadGIF(FileName, Picture)
+  else if (FileExt = '.wmf') or (FileExt = '.emf') then MFImp.ShowWMFImp(FileName,Picture)
+  else if (FileExt = '.ico') then LoadICO(FileName,Picture)
+  else
+  begin
+    Picture.Free;
+    ProgressBar.Visible := False;
+    Screen.Cursor := crDefault;
+    Application.MessageBox('The file type of this file is unknown.',Pchar(Application.Title),MB_ICONINFORMATION);
+    Exit;
+  end;
+  LoadedFile := FileName;
+  Result := True;
 end;
 
 function TDPEMain.LoadFinalize(var Picture : TPicture; FileName : string) : boolean;
 begin
-tft.Photo.Picture.Assign(Picture);
-tft.FitImage(Picture.Width,Picture.Height);
-Picture.Free;
-tft.Saved := True;
-tft.FormActivate(Self);
-tft.Photo.Hint := 'File: ' + ExtractFileName(FileName);
-tft.Caption := ExtractFileName(LoadedFile);
-ProgressBar.Visible := False;
-result := true;
+  tft.Photo.Picture.Assign(Picture);
+  tft.FitImage(Picture.Width,Picture.Height);
+  Picture.Free;
+  tft.Saved := True;
+  tft.FormActivate(Self);
+  tft.Photo.Hint := 'File: ' + ExtractFileName(FileName);
+  tft.Caption := ExtractFileName(LoadedFile);
+  Result := true;
 end;
 
 procedure TDPEMain.LoadPhoto(FileName : String);
 var tmp : TPicture;
     i : integer;
 begin
-// Check if file is already opened
-if MDIChildCount <> 0 then
-begin
-   for i := MDIChildCount-1 downto 0 do
-    if ANSILowerCase(TFPhoto(MDIChildren[i]).PhotoName) = AnsiLowerCase(FileName) then
-    begin
-      MDIChildren[i].Show;
-      exit;
-    end;
-end;
-//
-tmp := TPicture.Create;
-if not LoadToPicture(tmp,FileName) then Exit;
-TFPhoto.Create(Self);
-tft := TFPhoto(ActiveMDIChild);
-LoadFinalize(tmp,FileName);
-CheckTool(MDIChildCount);
+  // Check if file is already opened
+  for i := MDIChildCount-1 downto 0 do
+  if ANSILowerCase(TFPhoto(MDIChildren[i]).PhotoName) = AnsiLowerCase(FileName) then
+  begin
+     MDIChildren[i].Show;
+     Exit;
+  end;
+  //
+  tmp := TPicture.Create;
+  if not LoadToPicture(tmp,FileName) then Exit;
+  TFPhoto.Create(Self);
+  tft := TFPhoto(ActiveMDIChild);
+  LoadFinalize(tmp,FileName);
+  CheckTool(MDIChildCount);
 end;
 
 procedure TDPEMain.CheckTool(Count : Integer);
@@ -1100,7 +1101,7 @@ begin
 if MDIChildCount = 0 then Exit;
     for I := MDIChildCount-1 downto 0 do
       MDIChildren[I].Close;
-CheckTool(0);
+CheckTool(MDIChildCount);
 end;
 
 procedure TDPEMain.SaveToGif(Bitmap: TBitmap; FileName : string);
@@ -1149,6 +1150,7 @@ JPEGImage.Assign(Bitmap);
 JPEGImage.SaveToFile(FileName);
 //Stream.SaveToFile(FileName);
 //Stream.Free;
+JPEGImage.Free;
 ProgressBar.Visible := False;
 end; {SavetoJPEG}
 

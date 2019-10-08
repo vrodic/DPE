@@ -48,8 +48,9 @@ begin
      Picture.Bitmap.Width := wud.Position;
      Picture.Bitmap.Height := hud.Position;
      Picture.Bitmap.Canvas.StretchDraw(Rect(0,0,wud.Position+1,hud.Position+1),Pict.Graphic);
-     Pict.Free;
    finally
+    Pict.Free;
+    DPEMain.ProgressBar.Visible := False;
     Screen.Cursor := crDefault;
     Free;
   end;
